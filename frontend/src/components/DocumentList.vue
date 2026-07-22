@@ -68,18 +68,30 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
+import type { DocumentStatus, Id, KnowledgeDocument } from '@/types/domain'
 import { FileText, RotateCw, Trash2 } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 
 defineProps({
-  documents: { type: Array, default: () => [] },
+  documents: { type: Array as PropType<KnowledgeDocument[]>, default: () => [] },
 })
 
-const emit = defineEmits(['delete', 'viewDetail', 'reparse'])
+const emit = defineEmits<{
+  delete: [id: Id]
+  viewDetail: [document: KnowledgeDocument]
+  reparse: [id: Id]
+}>()
 
-function formatSize(bytes) {
+type DocumentListItem = KnowledgeDocument & {
+  fileName?: string
+  fileType?: string
+  fileSize?: number
+}
+
+function formatSize(bytes: number | undefined) {
   if (!bytes) return '-'
   const units = ['B', 'KB', 'MB', 'GB']
   let i = 0
@@ -91,12 +103,12 @@ function formatSize(bytes) {
   return `${size.toFixed(1)} ${units[i]}`
 }
 
-function formatDate(date) {
+function formatDate(date: string | number | Date | undefined) {
   if (!date) return '-'
   return new Date(date).toLocaleString('zh-CN')
 }
 
-function statusVariant(status) {
+function statusVariant(status: DocumentStatus) {
   const map = {
     pending: 'secondary',
     processing: 'outline',
@@ -104,11 +116,12 @@ function statusVariant(status) {
     failed: 'destructive',
     parsed: 'default',
     error: 'destructive',
-  }
-  return map[status] || 'secondary'
+    completed: 'default',
+  } as const
+  return map[status]
 }
 
-function statusLabel(status) {
+function statusLabel(status: DocumentStatus) {
   const map = {
     pending: '等待解析',
     processing: '解析中',
@@ -116,7 +129,8 @@ function statusLabel(status) {
     failed: '解析失败',
     parsed: '已完成',
     error: '解析失败',
-  }
-  return map[status] || status || '未知'
+    completed: '已完成',
+  } as const
+  return map[status]
 }
 </script>

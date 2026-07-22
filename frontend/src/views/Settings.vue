@@ -418,7 +418,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Sun, Moon } from 'lucide-vue-next'
 import {
@@ -440,6 +440,10 @@ import { useAuthStore } from '@/stores/authStore'
 
 const authStore = useAuthStore()
 
+type ToastType = 'success' | 'error'
+type AiProvider = { id: number; name: string; isActive: boolean; chatModel: string; embeddingModel: string; baseUrl: string; apiKey: string }
+type PromptShortcut = { id: number; name: string; prompt: string; isPreset: boolean }
+
 /* ========== Tab ========== */
 const activeTab = ref('model')
 
@@ -452,13 +456,13 @@ const tabs = [
 ]
 
 /* ========== Toast ========== */
-const toast = reactive({
+const toast = reactive<{ visible: boolean; message: string; type: ToastType }>({
   visible: false,
   message: '',
   type: 'success',
 })
 
-function showToast(message, type = 'success') {
+function showToast(message: string, type: ToastType = 'success') {
   toast.message = message
   toast.type = type
   toast.visible = true
@@ -466,13 +470,13 @@ function showToast(message, type = 'success') {
 }
 
 /* ========== Confirm ========== */
-const confirmDialog = reactive({
+const confirmDialog = reactive<{ visible: boolean; message: string; onConfirm: (() => void) | null }>({
   visible: false,
   message: '',
   onConfirm: null,
 })
 
-function showConfirm(message, onConfirm) {
+function showConfirm(message: string, onConfirm: () => void) {
   confirmDialog.message = message
   confirmDialog.onConfirm = onConfirm
   confirmDialog.visible = true
@@ -487,7 +491,7 @@ function handleConfirm() {
 }
 
 /* ========== AI 供应商 ========== */
-const providers = ref([
+const providers = ref<AiProvider[]>([
   { id: 1, name: 'DeepSeek', isActive: true, chatModel: 'deepseek-chat', embeddingModel: 'text-embedding-ada-002', baseUrl: 'https://api.deepseek.com', apiKey: '' },
   { id: 2, name: 'OpenAI', isActive: false, chatModel: 'gpt-4o', embeddingModel: 'text-embedding-3-small', baseUrl: 'https://api.openai.com', apiKey: '' },
 ])
@@ -501,7 +505,7 @@ const providerTypes = [
 const showAddProvider = ref(false)
 const newProviderType = ref('deepseek')
 const providerDialogVisible = ref(false)
-const editingProvider = ref(null)
+const editingProvider = ref<AiProvider | null>(null)
 const providerForm = reactive({
   name: '',
   apiKey: '',
@@ -510,13 +514,13 @@ const providerForm = reactive({
   embeddingModel: '',
 })
 
-function setActive(provider) {
+function setActive(provider: AiProvider) {
   providers.value.forEach((p) => (p.isActive = false))
   provider.isActive = true
   showToast(`已切换至 ${provider.name}`)
 }
 
-function editProvider(provider) {
+function editProvider(provider: AiProvider) {
   editingProvider.value = provider
   Object.assign(providerForm, {
     name: provider.name,
@@ -528,7 +532,7 @@ function editProvider(provider) {
   providerDialogVisible.value = true
 }
 
-function confirmDeleteProvider(provider) {
+function confirmDeleteProvider(provider: AiProvider) {
   showConfirm(`确定删除供应商「${provider.name}」吗？`, () => {
     providers.value = providers.value.filter((p) => p.id !== provider.id)
     showToast('删除成功')
@@ -553,9 +557,12 @@ function saveProvider() {
   } else {
     providers.value.push({
       id: Date.now(),
-      name: providerForm.name || newProviderType.value,
       isActive: false,
-      ...providerForm,
+      name: providerForm.name || newProviderType.value,
+      apiKey: providerForm.apiKey,
+      baseUrl: providerForm.baseUrl,
+      chatModel: providerForm.chatModel,
+      embeddingModel: providerForm.embeddingModel,
     })
     showToast('添加成功')
   }
@@ -580,7 +587,7 @@ const promptShortcuts = ref([
 ])
 
 const showPromptDialog = ref(false)
-const editingPrompt = ref(null)
+const editingPrompt = ref<PromptShortcut | null>(null)
 const promptForm = reactive({ name: '', prompt: '' })
 
 function openNewPrompt() {
@@ -590,7 +597,7 @@ function openNewPrompt() {
   showPromptDialog.value = true
 }
 
-function editPrompt(item) {
+function editPrompt(item: PromptShortcut) {
   editingPrompt.value = item
   promptForm.name = item.name
   promptForm.prompt = item.prompt
@@ -604,7 +611,7 @@ function closePromptDialog() {
   promptForm.prompt = ''
 }
 
-function deletePrompt(id) {
+function deletePrompt(id: number) {
   promptShortcuts.value = promptShortcuts.value.filter((p) => p.id !== id)
   showToast('删除成功')
 }

@@ -1,11 +1,15 @@
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
 import { Primitive } from 'radix-vue'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
+type ButtonSize = 'default' | 'sm' | 'lg' | 'icon'
+
 const props = defineProps({
-  variant: { type: String, default: 'default' },
-  size: { type: String, default: 'default' },
+  variant: { type: String as PropType<ButtonVariant>, default: 'default' },
+  size: { type: String as PropType<ButtonSize>, default: 'default' },
   as: { type: String, default: 'button' },
   disabled: { type: Boolean, default: false },
   class: { type: String, default: '' },

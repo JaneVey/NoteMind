@@ -1,9 +1,12 @@
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary'
+
 const props = defineProps({
-  variant: { type: String, default: 'default' },
+  variant: { type: String as PropType<BadgeVariant>, default: 'default' },
   class: { type: String, default: '' },
 })
 

@@ -101,8 +101,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, defineComponent, h, nextTick, ref } from 'vue'
+import type { Component, PropType } from 'vue'
+import type { ChatMessage, MessageRole } from '@/types/domain'
 import {
   AtSign,
   Bot,
@@ -117,19 +119,23 @@ import {
   WandSparkles,
 } from 'lucide-vue-next'
 
-const inputText = ref('')
-const messageListRef = ref(null)
-const activeConversationId = ref('history-1')
-const messages = ref([])
+interface ChatConversation { id: string; title: string }
+interface QuickAction { label: string; prompt: string; icon: Component }
+type PrototypeMessage = Required<Pick<ChatMessage, 'id' | 'role' | 'content'>>
 
-const conversations = [
+const inputText = ref('')
+const messageListRef = ref<HTMLElement | null>(null)
+const activeConversationId = ref('history-1')
+const messages = ref<PrototypeMessage[]>([])
+
+const conversations: ChatConversation[] = [
   { id: 'history-1', title: '帮我梳理 RAG 的完整链路' },
   { id: 'history-2', title: 'Java 后端实习项目表达优化' },
   { id: 'history-3', title: '解释 JWT 双 Token 鉴权流程' },
   { id: 'history-4', title: '把笔记整理成面试回答' },
 ]
 
-const quickActions = [
+const quickActions: QuickAction[] = [
   { label: '总结笔记', prompt: '请用清晰的条目总结这段笔记：', icon: Sparkles },
   { label: '文档解读', prompt: '请解读下面这份文档：', icon: FilePenLine },
   { label: '写作润色', prompt: '请优化下面这段内容的表达：', icon: WandSparkles },
@@ -144,13 +150,13 @@ function startNewChat() {
   inputText.value = ''
 }
 
-function selectConversation(item) {
+function selectConversation(item: ChatConversation) {
   activeConversationId.value = item.id
   inputText.value = item.title
   messages.value = []
 }
 
-function fillPrompt(prompt) {
+function fillPrompt(prompt: string) {
   inputText.value = prompt
 }
 
@@ -195,9 +201,9 @@ const ChatComposer = defineComponent({
   },
   emits: ['update:modelValue', 'send'],
   setup(props, { emit, attrs }) {
-    const updateValue = (event) => emit('update:modelValue', event.target.value)
+    const updateValue = (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
     const send = () => emit('send')
-    const enterSend = (event) => {
+    const enterSend = (event: KeyboardEvent) => {
       if (!event.shiftKey) {
         event.preventDefault()
         send()

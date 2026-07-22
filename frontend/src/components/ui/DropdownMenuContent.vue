@@ -1,4 +1,5 @@
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
 import {
   DropdownMenuContent,
   DropdownMenuPortal,
@@ -8,7 +9,7 @@ import { cn } from '@/lib/utils'
 const props = defineProps({
   class: { type: String, default: '' },
   sideOffset: { type: Number, default: 4 },
-  align: { type: String, default: 'start' },
+  align: { type: String as PropType<'start' | 'center' | 'end'>, default: 'start' },
 })
 </script>
 

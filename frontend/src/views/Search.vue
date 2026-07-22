@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { Search } from 'lucide-vue-next'
 
 const keyword = ref('')
-const results = ref([])
+interface SearchResult { id: string | number; title: string; excerpt: string }
+const results = ref<SearchResult[]>([])
 
 function doSearch() {
   if (keyword.value.trim()) {

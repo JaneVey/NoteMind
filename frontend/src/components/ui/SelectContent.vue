@@ -1,4 +1,5 @@
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
 import { SelectContent, SelectPortal } from 'radix-vue'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +12,7 @@ const props = defineProps({
 <template>
   <SelectPortal>
     <SelectContent
-      :position="position"
+      :position="position as 'popper' | 'item-aligned'"
       :class="cn(
         'relative z-50 max-h-96 min-w-32 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',

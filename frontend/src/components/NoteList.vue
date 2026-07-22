@@ -45,34 +45,41 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
+import type { Id, Note } from '@/types/domain'
 import { FileText, Edit, Trash2, Plus } from 'lucide-vue-next'
 
 const props = defineProps({
-  notes: { type: Array, default: () => [] },
-  currentNoteId: { type: [Number, String], default: null },
+  notes: { type: Array as PropType<Note[]>, default: () => [] },
+  currentNoteId: { type: [Number, String] as PropType<Id>, default: null },
 })
 
-const emit = defineEmits(['selectNote', 'deleteNote', 'renameNote', 'createNote'])
+const emit = defineEmits<{
+  selectNote: [id: Id]
+  deleteNote: [id: Id]
+  renameNote: [note: { id: Id; title: string }]
+  createNote: []
+}>()
 
-function handleRename(note) {
+function handleRename(note: Note) {
   const title = prompt('请输入新名称', note.title || '')
   if (title && title.trim()) {
     emit('renameNote', { id: note.id, title: title.trim() })
   }
 }
 
-function handleDelete(note) {
+function handleDelete(note: Note) {
   if (confirm(`确定删除笔记「${note.title || '无标题'}」吗？`)) {
     emit('deleteNote', note.id)
   }
 }
 
-function formatTime(time) {
+function formatTime(time: string | number | Date | undefined) {
   if (!time) return ''
   const date = new Date(time)
   const now = new Date()
-  const diff = now - date
+  const diff = now.getTime() - date.getTime()
   const minute = 60 * 1000
   const hour = 60 * minute
   const day = 24 * hour

@@ -137,7 +137,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BookOpen, Brain, Sparkles } from 'lucide-vue-next'
@@ -197,8 +197,8 @@ async function handleRegister() {
       nickname.value,
     )
     router.push('/login')
-  } catch (err) {
-    errorMessage.value = err.message || '注册失败，请稍后重试'
+  } catch (err: unknown) {
+    errorMessage.value = err instanceof Error ? err.message : '注册失败，请稍后重试'
   } finally {
     loading.value = false
   }
