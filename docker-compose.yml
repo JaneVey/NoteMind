@@ -1,0 +1,42 @@
+# 注意：开发环境下 PostgreSQL / Redis / MinIO 均在本地直接运行，
+# 无需使用 Docker Compose。以下配置仅供生产/演示部署时使用。
+# 本地开发时直接启动后端和前端即可。
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: notemind-postgres
+    environment:
+      POSTGRES_DB: notemind_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: notemind-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    container_name: notemind-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:

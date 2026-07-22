@@ -1,0 +1,64 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: NoteMind
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notemind_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-2cebb690c0e6474fb473cc635379a2fc}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:deepseek-v4-flash}
+    # Gemini 配置（需用户填写 API Key 后启用）
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: is_deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.notemind.entity
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: "${MINIO_ACCESS_KEY:minioadmin}"
+  secret-key: "${MINIO_SECRET_KEY:minioadmin}"
+  bucket: notemind
+
+jwt:
+  secret: NoteMind-JWT-Secret-Key-2026-By-JanVey-For-Graduation-Project-Must-Be-Long
+  expiration: 86400000
+
+app:
+  ai:
+    embedding-dimension: 1536
+    chunk-size: 512
+    chunk-overlap: 50
+    top-k: 5
+    max-context-tokens: 4096

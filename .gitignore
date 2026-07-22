@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/target/
+.m2-repo/
+
+# IDE and local state
+.idea/
+.vscode/
+*.iml
+frontend/.edge-*/
+
+# Logs
+*.log
+*.log.*
+
+# Environment and OS files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
