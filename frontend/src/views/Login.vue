@@ -114,7 +114,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BookOpen, Brain, Sparkles } from 'lucide-vue-next'
@@ -150,8 +150,8 @@ async function handleLogin() {
   try {
     await authStore.login(username.value, password.value)
     router.push('/')
-  } catch (err) {
-    errorMessage.value = err.message || '登录失败，请检查用户名和密码'
+  } catch (err: unknown) {
+    errorMessage.value = err instanceof Error ? err.message : '登录失败，请检查用户名和密码'
   } finally {
     loading.value = false
   }

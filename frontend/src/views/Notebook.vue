@@ -213,7 +213,7 @@
             class="markdown-area"
             spellcheck="false"
             placeholder="开始写 Markdown 笔记..."
-            @input="autoResizeTextarea($event.target)"
+            @input="autoResizeTextarea($event)"
           />
         </div>
       </article>
@@ -372,7 +372,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   AlignLeft,
@@ -447,10 +447,10 @@ const rightTabs = [
   { key: 'ai', icon: Sparkles, label: 'AI 助手' },
 ]
 const showViewMenu = ref(false)
-const viewMenuRef = ref(null)
+const viewMenuRef = ref<HTMLElement | null>(null)
 const viewMode = ref('source')
 
-let removeResizeListeners = null
+let removeResizeListeners: (() => void) | null = null
 
 function toggleSidePanel() {
   sidePanelVisible.value = !sidePanelVisible.value
@@ -460,25 +460,25 @@ function toggleRightPanel() {
   rightPanelVisible.value = !rightPanelVisible.value
 }
 
-function selectViewMode(mode) {
+function selectViewMode(mode: 'source' | 'reading' | 'knowledge') {
   if (mode === 'source' || mode === 'reading') {
     viewMode.value = mode
   }
   showViewMenu.value = false
 }
 
-function handleViewMenuOutside(event) {
-  if (viewMenuRef.value && !viewMenuRef.value.contains(event.target)) {
+function handleViewMenuOutside(event: MouseEvent) {
+  if (viewMenuRef.value && !viewMenuRef.value.contains(event.target as Node)) {
     showViewMenu.value = false
   }
 }
 
-function startSidePanelResize(event) {
+function startSidePanelResize(event: MouseEvent) {
   isSidePanelResizing.value = true
   const startX = event.clientX
   const startWidth = sidePanelWidth.value
 
-  const onMove = (moveEvent) => {
+  const onMove = (moveEvent: MouseEvent) => {
     const nextWidth = startWidth + (moveEvent.clientX - startX)
     if (nextWidth < SIDE_PANEL_MIN_WIDTH) {
       // 卡在最小宽度，继续拖拽累积偏移，超过 3/4 最小宽度才收起
@@ -506,14 +506,14 @@ function startSidePanelResize(event) {
   window.addEventListener('mouseup', stopSidePanelResize)
 }
 
-let removeRightResizeListeners = null
+let removeRightResizeListeners: (() => void) | null = null
 
-function startRightPanelResize(event) {
+function startRightPanelResize(event: MouseEvent) {
   isRightPanelResizing.value = true
   const startX = event.clientX
   const startWidth = rightPanelWidth.value
 
-  const onMove = (moveEvent) => {
+  const onMove = (moveEvent: MouseEvent) => {
     // Dragging right → panel gets narrower
     const nextWidth = startWidth - (moveEvent.clientX - startX)
     if (nextWidth < RIGHT_PANEL_MIN_WIDTH) {
@@ -546,8 +546,8 @@ onMounted(() => {
   document.addEventListener('mousedown', handleViewMenuOutside)
   // 初始化 textarea 高度
   nextTick(() => {
-    const ta = document.querySelector('.markdown-area')
-    if (ta) autoResizeTextarea(ta)
+    const textarea = document.querySelector<HTMLTextAreaElement>('.markdown-area')
+    if (textarea) resizeTextarea(textarea)
   })
 })
 
@@ -634,17 +634,24 @@ const noteContent = ref(activeNote.value.content)
 const wordCount = computed(() => noteContent.value.trim() ? noteContent.value.trim().split(/\s+/).length : 0)
 const backlinkCount = computed(() => (noteContent.value.match(/\[\[/g) || []).length)
 
-function autoResizeTextarea(el) {
-  el.style.height = 'auto'
-  el.style.height = el.scrollHeight + 'px'
+function resizeTextarea(textarea: HTMLTextAreaElement) {
+  textarea.style.height = 'auto'
+  textarea.style.height = `${textarea.scrollHeight}px`
 }
 
-function selectNote(note) {
+function autoResizeTextarea(event: Event) {
+  const textarea = event.currentTarget
+  if (textarea instanceof HTMLTextAreaElement) resizeTextarea(textarea)
+}
+
+type PrototypeNote = { id: string; title: string; summary: string; content: string }
+
+function selectNote(note: PrototypeNote) {
   activeNoteId.value = note.id
   noteContent.value = note.content
   nextTick(() => {
-    const ta = document.querySelector('.markdown-area')
-    if (ta) autoResizeTextarea(ta)
+    const textarea = document.querySelector<HTMLTextAreaElement>('.markdown-area')
+    if (textarea) resizeTextarea(textarea)
   })
 }
 

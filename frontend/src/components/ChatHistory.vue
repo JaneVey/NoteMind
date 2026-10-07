@@ -177,8 +177,10 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, computed } from 'vue'
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
+import type { PropType } from 'vue'
+import type { Conversation, Id } from '@/types/domain'
 import { Star, MessageSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
@@ -193,28 +195,31 @@ import DropdownMenuItem from '@/components/ui/DropdownMenuItem.vue'
 import DropdownMenuSeparator from '@/components/ui/DropdownMenuSeparator.vue'
 
 const props = defineProps({
-  conversations: { type: Array, default: () => [] },
-  currentId: { type: [Number, String], default: null },
+  conversations: { type: Array as PropType<Conversation[]>, default: () => [] },
+  currentId: { type: [Number, String] as PropType<Id>, default: null },
 })
 
-const emit = defineEmits(['select', 'create', 'rename', 'delete', 'favorite'])
+const emit = defineEmits<{
+  select: [id: Id]
+  create: []
+  rename: [id: Id, title: string]
+  delete: [id: Id]
+  favorite: [id: Id, isFavorite: boolean]
+}>()
 
-// Right-click context menu state
-const contextMenu = reactive({
+const contextMenu = reactive<{ visible: boolean; x: number; y: number; conv: Conversation | null }>({
   visible: false,
   x: 0,
   y: 0,
   conv: null,
 })
 
-// Rename dialog state
 const renameDialogVisible = ref(false)
 const renameValue = ref('')
-const renameTarget = ref(null)
+const renameTarget = ref<Conversation | null>(null)
 
-// Delete dialog state
 const deleteDialogVisible = ref(false)
-const deleteTarget = ref(null)
+const deleteTarget = ref<Conversation | null>(null)
 
 // Computed: separate favorited and regular conversations
 const favoritedConversations = computed(() =>
@@ -225,7 +230,7 @@ const regularConversations = computed(() =>
   props.conversations.filter((c) => !c.isFavorite)
 )
 
-function handleContextMenu(event, conv) {
+function handleContextMenu(event: MouseEvent, conv: Conversation) {
   contextMenu.visible = true
   contextMenu.x = event.clientX
   contextMenu.y = event.clientY
@@ -237,7 +242,7 @@ function closeContextMenu() {
   contextMenu.conv = null
 }
 
-function openRenameDialog(conv) {
+function openRenameDialog(conv: Conversation | null) {
   const target = conv
   closeContextMenu()
   if (!target) return
@@ -254,7 +259,7 @@ function confirmRename() {
   renameTarget.value = null
 }
 
-function toggleFavorite(conv) {
+function toggleFavorite(conv: Conversation | null) {
   const target = conv
   closeContextMenu()
   if (target) {
@@ -262,7 +267,7 @@ function toggleFavorite(conv) {
   }
 }
 
-function confirmDelete(conv) {
+function confirmDelete(conv: Conversation | null) {
   const target = conv
   closeContextMenu()
   if (!target) return
@@ -278,11 +283,11 @@ function confirmDeleteAction() {
   deleteTarget.value = null
 }
 
-function formatTime(time) {
+function formatTime(time: string | number | Date | undefined) {
   if (!time) return ''
   const date = new Date(time)
   const now = new Date()
-  const diff = now - date
+  const diff = now.getTime() - date.getTime()
   const day = 24 * 60 * 60 * 1000
   if (diff < day) {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { cn } from '@/lib/utils'
 
 const props = defineProps({
@@ -26,6 +26,6 @@ const emit = defineEmits(['update:modelValue'])
       'disabled:cursor-not-allowed disabled:opacity-50',
       props.class,
     )"
-    @input="emit('update:modelValue', $event.target.value)"
+    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
   />
 </template>

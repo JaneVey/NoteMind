@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
+import type { PropType } from 'vue'
 import { Separator as RadixSeparator } from 'radix-vue'
 import { cn } from '@/lib/utils'
 
 const props = defineProps({
-  orientation: { type: String, default: 'horizontal' },
+  orientation: { type: String as PropType<'horizontal' | 'vertical'>, default: 'horizontal' },
   decorative: { type: Boolean, default: true },
   class: { type: String, default: '' },
 })

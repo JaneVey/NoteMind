@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { SelectValue } from 'radix-vue'
 import { cn } from '@/lib/utils'
 

@@ -1,9 +1,10 @@
+import type { NavigationGuardNext, Router, RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
 const whiteList = ['/login', '/register']
 
-export default function setupGuard(router) {
-  router.beforeEach((to, _from, next) => {
+export default function setupGuard(router: Router) {
+  router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
     if (import.meta.env.DEV) {
       next()
       return
@@ -28,7 +29,7 @@ export default function setupGuard(router) {
     }
   })
 
-  router.afterEach((to) => {
+  router.afterEach((to: RouteLocationNormalized) => {
     document.title = to.meta?.title
       ? `${to.meta.title} - NoteMind`
       : 'NoteMind'

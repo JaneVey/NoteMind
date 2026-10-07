@@ -2,7 +2,16 @@
  * SSE 流式接收工具
  * 用于 AI 对话的逐字输出
  */
-export function createSseConnection(url, options = {}) {
+export interface SseConnectionOptions {
+  method?: string
+  body?: unknown
+  onMessage?: (data: unknown) => void
+  onError?: (error: unknown) => void
+  onDone?: () => void
+  signal?: AbortSignal | null
+}
+
+export function createSseConnection(url: string, options: SseConnectionOptions = {}) {
   const {
     method = 'POST',
     body = null,
@@ -19,6 +28,7 @@ export function createSseConnection(url, options = {}) {
     signal,
   })
     .then(async (response) => {
+      if (!response.body) throw new Error('SSE 响应不包含可读取的内容')
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''

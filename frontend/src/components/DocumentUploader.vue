@@ -47,18 +47,19 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+import { ref, type PropType } from 'vue'
+import type { Id } from '@/types/domain'
 import { FileText } from 'lucide-vue-next'
 
-const props = defineProps({
-  knowledgeBaseId: { type: [Number, String], required: true },
+defineProps({
+  knowledgeBaseId: { type: [Number, String] as PropType<Id>, required: true },
 })
 
-const emit = defineEmits(['uploadSuccess'])
+const emit = defineEmits<{ uploadSuccess: [file: File] }>()
 
 const acceptTypes = '.md,.pdf,.docx,.pptx,.png,.jpg'
-const fileInputRef = ref(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragOver = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
@@ -70,7 +71,7 @@ function triggerFileInput() {
   fileInputRef.value?.click()
 }
 
-function validateFile(file) {
+function validateFile(file: File) {
   if (file.size > MAX_SIZE) {
     alert('文件大小不能超过 50MB')
     return false
@@ -78,7 +79,7 @@ function validateFile(file) {
   return true
 }
 
-function handleDrop(event) {
+function handleDrop(event: DragEvent) {
   isDragOver.value = false
   const files = event.dataTransfer?.files
   if (files?.length) {
@@ -86,23 +87,24 @@ function handleDrop(event) {
   }
 }
 
-function handleFileChange(event) {
-  const files = event.target.files
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
   if (files?.length) {
     uploadFiles(Array.from(files))
   }
   // 重置 input 以便再次选择相同文件
-  event.target.value = ''
+  target.value = ''
 }
 
-function uploadFiles(files) {
+function uploadFiles(files: File[]) {
   for (const file of files) {
     if (!validateFile(file)) continue
     simulateUpload(file)
   }
 }
 
-function simulateUpload(file) {
+function simulateUpload(file: File) {
   uploading.value = true
   uploadProgress.value = 0
   uploadingFileName.value = file.name

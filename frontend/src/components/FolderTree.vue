@@ -64,8 +64,9 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, type PropType } from 'vue'
+import type { Id } from '@/types/domain'
 import { ChevronRight, Folder, Trash2 } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
@@ -74,19 +75,27 @@ import DialogContent from '@/components/ui/DialogContent.vue'
 import DialogHeader from '@/components/ui/DialogHeader.vue'
 import DialogTitle from '@/components/ui/DialogTitle.vue'
 
+type TreeFolder = { id: Id; name: string; notebookId?: Id; level?: number; children?: TreeFolder[] }
+type TreeNotebook = { id: Id; name: string; folders?: TreeFolder[] }
+
 const props = defineProps({
-  notebooks: { type: Array, default: () => [] },
-  currentNotebookId: { type: [Number, String], default: null },
-  currentFolderId: { type: [Number, String], default: null },
-  folders: { type: Array, default: () => [] },
+  notebooks: { type: Array as PropType<TreeNotebook[]>, default: () => [] },
+  currentNotebookId: { type: [Number, String] as PropType<Id>, default: null },
+  currentFolderId: { type: [Number, String] as PropType<Id>, default: null },
+  folders: { type: Array as PropType<TreeFolder[]>, default: () => [] },
 })
 
-const emit = defineEmits(['selectFolder', 'selectNotebook', 'createFolder', 'deleteFolder'])
+const emit = defineEmits<{
+  selectFolder: [id: Id]
+  selectNotebook: [id: Id]
+  createFolder: [payload: { name: string; notebookId: Id | null }]
+  deleteFolder: [id: Id]
+}>()
 
 const localNotebookId = ref(props.currentNotebookId)
 const showCreateDialog = ref(false)
 const newFolderName = ref('')
-const expandedFolders = ref(new Set())
+const expandedFolders = ref(new Set<Id>())
 
 watch(
   () => props.currentNotebookId,
@@ -115,7 +124,7 @@ function handleCreate() {
   newFolderName.value = ''
 }
 
-function handleDeleteFolder(folder) {
+function handleDeleteFolder(folder: TreeFolder) {
   if (confirm(`删除文件夹「${folder.name}」？`)) {
     emit('deleteFolder', folder.id)
   }

@@ -183,7 +183,7 @@
   </Dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -216,7 +216,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const showUserMenu = ref(false)
-const userMenuRef = ref(null)
+const userMenuRef = ref<HTMLElement | null>(null)
 const showOptionsPanel = ref(false)
 const showProfileDialog = ref(false)
 const saving = ref(false)
@@ -245,7 +245,7 @@ const avatarText = computed(() => {
   return nick ? nick.charAt(0).toUpperCase() : 'J'
 })
 
-function isActive(path) {
+function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`)
 }
 
@@ -276,8 +276,8 @@ function handleLogout() {
   router.push('/login')
 }
 
-function handleClickOutside(e) {
-  if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
+function handleClickOutside(e: MouseEvent) {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target as Node)) {
     showUserMenu.value = false
   }
 }

@@ -5,59 +5,119 @@ spring:
   application:
     name: NoteMind
 
+  # ============================================================
+  # 从仓库根目录的 .env 载入环境变量（可选，不存在则忽略）
+  # 语法 [.properties] 表示把无扩展名的文件按 properties 格式解析
+  # ============================================================
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+
+  # ============================================================
+  # 数据库：PostgreSQL 16 + pgvector
+  # 统一为 notemind（原先 application.yml 用 notemind_db、
+  # application-dev.yml 用 notemind、docker-compose 用 notemind_db，三处不一致）
+  # ============================================================
   datasource:
-    url: jdbc:postgresql://localhost:5432/notemind_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notemind}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       timeout: 5000
 
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY:}
-      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
-      chat:
-        options:
-          model: ${OPENAI_MODEL:deepseek-v4-flash}
-    # Gemini 配置（需用户填写 API Key 后启用）
-    gemini:
-      api-key: ${GEMINI_API_KEY:}
-
+  # ============================================================
+  # 文件上传限制
+  # ============================================================
   servlet:
     multipart:
       max-file-size: 50MB
       max-request-size: 100MB
 
+  # ============================================================
+  # AI 配置
+  #
+  # ⚠️ 这里的配置是【后端启动兜底值】，仅用于最小链路验证。
+  #    系统的正式行为是：从数据库 ai_config 表按用户读取配置，
+  #    在运行时以编程方式构建 ChatModel / EmbeddingModel
+  #    （见 AI 供应商接入设计文档的 AiConfigManager）。
+  #    这样用户可以在设置页填入任意 OpenAI 兼容服务。
+  #
+  # 开发阶段推荐硅基流动：一个 Key 同时覆盖 chat / embedding / rerank
+  #   AI_BASE_URL=https://api.siliconflow.cn/v1
+  #   AI_CHAT_MODEL / AI_EMBEDDING_MODEL 必须与控制台模型 ID 完全一致
+  #
+  # 安全要求：不得在此文件写入真实密钥，一律通过 .env 或环境变量注入。
+  # ============================================================
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+    openai:
+      api-key: ${AI_API_KEY:}
+      base-url: ${AI_BASE_URL:https://api.siliconflow.cn/v1}
+      chat:
+        options:
+          # 留空则由 Spring AI 使用其内置默认值；建议在 .env 中显式指定
+          model: ${AI_CHAT_MODEL:}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:BAAI/bge-m3}
+
+# ============================================================
+# MyBatis-Plus
+# ============================================================
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
+    banner: false
     db-config:
       logic-delete-field: is_deleted
       logic-delete-value: true
       logic-not-delete-value: false
-  mapper-locations: classpath:mapper/*.xml
+  mapper-locations: classpath*:mapper/**/*.xml
   type-aliases-package: com.notemind.entity
 
+# ============================================================
+# MinIO 对象存储
+# ============================================================
 minio:
-  endpoint: http://localhost:9000
-  access-key: "${MINIO_ACCESS_KEY:minioadmin}"
-  secret-key: "${MINIO_SECRET_KEY:minioadmin}"
-  bucket: notemind
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:notemind}
 
+# ============================================================
+# JWT
+# 生产环境必须通过 JWT_SECRET 环境变量注入，不要使用下面的开发默认值
+# ============================================================
 jwt:
-  secret: NoteMind-JWT-Secret-Key-2026-By-JanVey-For-Graduation-Project-Must-Be-Long
+  secret: ${JWT_SECRET:notemind-LOCAL-DEV-ONLY-secret-change-me-in-production-must-be-long-enough}
   expiration: 86400000
 
+# ============================================================
+# 应用级配置
+# ============================================================
 app:
+  # CORS 允许的来源（前端地址），逗号分隔。
+  # 生产环境必须改为真实域名，禁止使用 *
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
   ai:
-    embedding-dimension: 1536
+    # 必须与所选 Embedding 模型的输出维度一致。
+    # 1024 匹配：硅基流动 BAAI/bge-m3（无限免费）、硅基流动 Qwen3-Embedding-0.6B、
+    #            阿里云百炼 text-embedding-v3（默认 1024）。
+    # ⚠️ 更换 Embedding 模型会使已有向量全部作废：除本项外，还必须同步修改
+    #    init.sql 的 VECTOR(1024)，并重新解析全部文档。
+    embedding-dimension: ${AI_EMBEDDING_DIMENSION:1024}
     chunk-size: 512
     chunk-overlap: 50
     top-k: 5

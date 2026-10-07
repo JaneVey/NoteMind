@@ -1,5 +1,6 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import type { KnowledgeDocument } from '@/types/domain'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, FileText, Trash2, RotateCw } from 'lucide-vue-next'
 
@@ -9,22 +10,26 @@ const router = useRouter()
 const loading = ref(false)
 const reparsing = ref(false)
 const deleting = ref(false)
-const doc = ref(null)
+const doc = ref<KnowledgeDocument | null>(null)
 
 const statusConfig = computed(() => {
-  const map = {
+  const map: Record<KnowledgeDocument['status'], { label: string; cls: string }> = {
     pending:   { label: '待解析',   cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
     processing:{ label: '解析中',   cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
     completed: { label: '已完成',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    done:      { label: '已完成',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    parsed:    { label: '已完成',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
     failed:    { label: '解析失败', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+    error:     { label: '解析失败', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   }
-  return map[doc.value?.status] || { label: doc.value?.status || '未知', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' }
+  const status = doc.value?.status
+  return (status ? map[status] : undefined) || { label: status || '未知', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' }
 })
 
 const statusLabel = computed(() => statusConfig.value.label)
 const statusClass = computed(() => statusConfig.value.cls)
 
-function formatSize(bytes) {
+function formatSize(bytes: number | undefined) {
   if (!bytes) return '-'
   const units = ['B', 'KB', 'MB', 'GB']
   let i = 0

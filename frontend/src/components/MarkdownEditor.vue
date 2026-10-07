@@ -25,7 +25,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { Save } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
@@ -49,11 +49,12 @@ const wordCount = computed(() => {
   return chinese + words
 })
 
-function handleInput(event) {
-  emit('update:modelValue', event.target.value)
+function handleInput(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  emit('update:modelValue', target.value)
 }
 
-function handleKeydown(event) {
+function handleKeydown(event: KeyboardEvent) {
   // Ctrl+S 触发保存
   if ((event.ctrlKey || event.metaKey) && event.key === 's') {
     event.preventDefault()
@@ -67,9 +68,8 @@ function handleSave() {
 
 onMounted(() => {
   nextTick(() => {
-    if (textareaRef.value) {
-      textareaRef.value.focus()
-    }
+    const textarea = textareaRef.value as HTMLTextAreaElement | null
+    textarea?.focus()
   })
 })
 </script>

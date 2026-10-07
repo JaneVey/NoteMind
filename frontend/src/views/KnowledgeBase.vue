@@ -43,7 +43,7 @@
     <div
       v-if="listVisible"
       class="side-panel-resizer"
-      @mousedown.prevent="startResize('list')"
+      @mousedown.prevent="startResize('list', $event)"
     />
 
     <!-- 知识库详情 + Q&A 容器 -->
@@ -123,7 +123,7 @@
       </section>
 
       <!-- Resizer 2: 详情 ↔ Q&A -->
-      <div class="side-panel-resizer" @mousedown.prevent="startResize('detail')" />
+      <div class="side-panel-resizer" @mousedown.prevent="startResize('detail', $event)" />
 
       <!-- Q&A 问答区 -->
       <main class="relative flex min-w-0 flex-1 flex-col bg-[#fdfdfc]">
@@ -210,7 +210,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
   ArrowDownUp,
@@ -238,8 +238,12 @@ import DialogHeader from '@/components/ui/DialogHeader.vue'
 import DialogTitle from '@/components/ui/DialogTitle.vue'
 import Input from '@/components/ui/Input.vue'
 
+interface KnowledgeContent { id: string; name: string; meta: string; status: string; citation: string }
+interface PrototypeKnowledgeBase { id: string; name: string; type: string; count: number; contents: KnowledgeContent[] }
+type ResizeTarget = 'list' | 'detail'
+
 const activeBaseId = ref('project')
-const selectedContent = ref(null)
+const selectedContent = ref<KnowledgeContent | null>(null)
 const ragQuestion = ref('')
 const showCreateDialog = ref(false)
 const showImportHint = ref(false)
@@ -264,14 +268,14 @@ function toggleList() {
   listVisible.value = !listVisible.value
 }
 
-function startResize(type) {
+function startResize(type: ResizeTarget, event: MouseEvent) {
   const startX = event.clientX
   const startList = listWidth.value
   const startDetail = detailWidth.value
   document.documentElement.style.cursor = 'col-resize'
   document.documentElement.style.userSelect = 'none'
 
-  function onMove(e) {
+  function onMove(e: MouseEvent) {
     const dx = e.clientX - startX
 
     if (type === 'list') {
@@ -352,7 +356,7 @@ function startResize(type) {
   window.addEventListener('mouseup', stopResize)
 }
 
-const personalBases = ref([
+const personalBases = ref<PrototypeKnowledgeBase[]>([
   { id: 'java', name: 'Java知识库', type: '个人知识库', count: 9, contents: [] },
   { id: 'graduate', name: '毕设资料库', type: '个人知识库', count: 15, contents: [] },
   { id: 'paper', name: '论文库', type: '个人知识库', count: 6, contents: [] },
@@ -405,7 +409,7 @@ const activeBase = computed(() => {
   }
 })
 
-function selectBase(id) {
+function selectBase(id: string) {
   activeBaseId.value = id
   selectedContent.value = null
   showImportHint.value = false

@@ -49,14 +49,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
+import type { PropType } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import Badge from '@/components/ui/Badge.vue'
 
+interface MessageSource { title?: string; name?: string }
+interface BubbleMessage { role: 'user' | 'assistant' | 'system'; content: string; metadata?: { sources?: MessageSource[]; citations?: MessageSource[] } | null }
+
 const props = defineProps({
   message: {
-    type: Object,
+    type: Object as PropType<BubbleMessage>,
     required: true,
     default: () => ({ role: 'user', content: '', metadata: null }),
   },
