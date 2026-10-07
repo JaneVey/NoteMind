@@ -168,7 +168,7 @@ CREATE TABLE knowledge_chunk (
     chunk_index       INTEGER NOT NULL,
     chunk_content     TEXT NOT NULL,
     chunk_token_count INTEGER DEFAULT 0,
-    embedding         VECTOR(1536),
+    embedding         VECTOR(1024),
     source_info       JSONB,
     created_at        TIMESTAMP DEFAULT NOW()
 );
@@ -176,8 +176,12 @@ CREATE TABLE knowledge_chunk (
 CREATE INDEX idx_knowledge_chunk_doc_id ON knowledge_chunk(document_id);
 CREATE INDEX idx_knowledge_chunk_kb_id ON knowledge_chunk(knowledge_base_id);
 CREATE INDEX idx_knowledge_chunk_note_id ON knowledge_chunk(note_id);
-CREATE INDEX idx_knowledge_chunk_embedding ON knowledge_chunk
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- 向量索引：开发阶段先不建。
+-- 原因：ivfflat 需要先有数据再建索引（要对数据聚类），而几千行的规模下
+-- lists=100 意味着每簇不足 100 行，召回率反而下降，不如顺序扫描精确。
+-- 数据量增长后（例如 > 1 万块）再启用 HNSW（无需训练、小数据量表现好）：
+-- CREATE INDEX idx_knowledge_chunk_embedding ON knowledge_chunk
+--     USING hnsw (embedding vector_cosine_ops);
 
 -- ============================================================
 -- 9. ai_config — AI 供应商配置
@@ -301,35 +305,35 @@ VALUES (1, '默认笔记本', '系统自动创建的默认笔记本', '📒');
 -- 14.3 预设快捷提示词（关联用户 1）
 INSERT INTO prompt_shortcut (user_id, name, prompt, description, is_preset, sort_order) VALUES
 (1, '解释',
- '请用简单易懂的方式解释以下内容，适合初学者理解：\n\n{content}',
+ '请用简单易懂的方式解释以下内容，适合初学者理解：\n\n{selection}',
  '用通俗语言解释复杂概念', TRUE, 1),
 
 (1, '总结',
- '请对以下内容进行简洁的总结，提取关键信息：\n\n{content}',
+ '请对以下内容进行简洁的总结，提取关键信息：\n\n{selection}',
  '提取要点，生成摘要', TRUE, 2),
 
 (1, '润色',
- '请对以下文本进行润色，使其更加流畅、专业，保持原意不变：\n\n{content}',
+ '请对以下文本进行润色，使其更加流畅、专业，保持原意不变：\n\n{selection}',
  '优化语言表达', TRUE, 3),
 
 (1, '扩写',
- '请对以下内容进行扩写，丰富细节和例证，保持原有风格：\n\n{content}',
+ '请对以下内容进行扩写，丰富细节和例证，保持原有风格：\n\n{selection}',
  '丰富内容细节', TRUE, 4),
 
 (1, '翻译英文',
- '请将以下内容翻译成英文，保持专业性和准确性：\n\n{content}',
+ '请将以下内容翻译成英文，保持专业性和准确性：\n\n{selection}',
  '中译英', TRUE, 5),
 
 (1, '翻译中文',
- '请将以下内容翻译成中文，保持通顺自然：\n\n{content}',
+ '请将以下内容翻译成中文，保持通顺自然：\n\n{selection}',
  '英译中', TRUE, 6),
 
 (1, '继续写',
- '请根据以下内容继续续写，保持风格和逻辑一致：\n\n{content}',
+ '请根据以下内容继续续写，保持风格和逻辑一致：\n\n{selection}',
  '延续写作', TRUE, 7),
 
 (1, '论文降重',
- '请对以下论文段落进行降重处理，保持原意、学术风格和逻辑结构的同时改变表达方式：\n\n{content}',
+ '请对以下论文段落进行降重处理，保持原意、学术风格和逻辑结构的同时改变表达方式：\n\n{selection}',
  '降低论文查重率', TRUE, 8);
 
 -- 14.4 AI 供应商预设（关联用户 1）

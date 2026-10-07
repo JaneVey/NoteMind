@@ -1,42 +1,100 @@
-# 注意：开发环境下 PostgreSQL / Redis / MinIO 均在本地直接运行，
-# 无需使用 Docker Compose。以下配置仅供生产/演示部署时使用。
-# 本地开发时直接启动后端和前端即可。
+# ============================================================
+# NoteMind 部署编排
+#
+# 用途：生产 / 答辩演示部署（开发环境 PostgreSQL / Redis / MinIO 可在本地直跑）
+#
+# 安全须知（公网部署前必须处理）：
+#   1. MinIO 的 9001 控制台端口【绝不可】对公网开放，仅在需要时临时映射到 127.0.0.1
+#   2. 所有密码通过 .env 文件或环境变量注入，不要写死在版本库里
+#   3. 数据库与 Redis 端口不要对公网暴露，只在 Docker 内网互通
+#   4. 对外只暴露 Nginx（80 / 443）
+# ============================================================
 services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: notemind-postgres
     environment:
-      POSTGRES_DB: notemind_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
+      # 与 backend/src/main/resources/application.yml 的默认值保持一致（库名 notemind）
+      POSTGRES_DB: ${DB_NAME:-notemind}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+    expose:
+      - "5432"
     ports:
-      - "5432:5432"
+      # 仅绑定本机，避免数据库直接暴露到公网。本机调试可用 localhost:5432
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: notemind-redis
+    # appendonly yes：开启 AOF 持久化。
+    # Redis 在本项目中承担"AI 配置缓存 + 限流计数 + 登录失败计数"，
+    # 限流与失败计数的数据丢失会导致防护失效，因此开启持久化。
+    command: redis-server --appendonly yes
+    expose:
+      - "6379"
     ports:
-      - "6379:6379"
+      # 映射到 host 6380：本机 6379 被另一个项目的 Redis 3.0 Windows 服务占用。
+      # 仅绑 127.0.0.1，不对公网暴露。
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redisdata:/data
     restart: unless-stopped
 
   minio:
     image: minio/minio
     container_name: notemind-minio
     command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    expose:
+      - "9000"
+    ports:
+      # 9000 = S3 API（后端调用）；9001 = 控制台。
+      # 仅绑本机：需要管理时用 SSH 隧道访问，切勿对公网开放 9001。
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - miniodata:/data
     restart: unless-stopped
 
+  # ------------------------------------------------------------
+  # 后端应用（含打包进 jar 的前端静态资源）
+  # 需要先执行：mvn clean package
+  # ------------------------------------------------------------
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notemind-app
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-notemind}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      # 以下两个必须由部署者通过 .env 注入，不得使用默认值
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 必须设置}
+      AI_API_KEY: ${AI_API_KEY:-}
+    expose:
+      - "8080"
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  redisdata:
   miniodata:

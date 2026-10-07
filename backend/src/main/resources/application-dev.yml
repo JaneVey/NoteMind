@@ -1,11 +1,12 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/notemind
-    username: postgres
-    password: 123456
+# 开发环境专用配置（激活方式：--spring.profiles.active=dev）
+#
+# 数据库连接已统一到 application.yml（默认 localhost:5432/notemind），
+# 此处不再重复定义，避免出现"同一份配置两个真相"。
+# 如需本机特殊配置，用环境变量覆盖：DB_NAME / DB_USERNAME / DB_PASSWORD
 
 mybatis-plus:
   configuration:
+    # 打印 SQL，仅开发环境开启（生产会刷屏并泄露参数）
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 logging:
