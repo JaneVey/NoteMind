@@ -62,6 +62,13 @@ const router = createRouter({
           component: () => import('@/views/Graph.vue'),
           meta: { title: '知识图谱' },
         },
+        {
+          // 开发阶段的技术验证页（AI 流式输出 + 思考链），验证完成后可删除
+          path: 'spike/ai-stream',
+          name: 'AiStreamSpike',
+          component: () => import('@/views/AiStreamSpike.vue'),
+          meta: { title: 'AI 流式验证' },
+        },
       ],
     },
   ],
