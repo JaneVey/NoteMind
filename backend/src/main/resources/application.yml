@@ -112,6 +112,30 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
 
   ai:
+    # ------------------------------------------------------------
+    # 思考链（reasoning_content）参数形式
+    #
+    # ⚠️ 实测结论（硅基流动 deepseek-ai/DeepSeek-V4-Flash）：
+    #    非流式请求默认就返回 reasoning_content；
+    #    但【流式请求默认完全不返回】，必须显式传参。
+    #
+    # 可选值：
+    #   none             不传（思考内容将不会出现在流式响应中）
+    #   thinking         传 {"thinking":{"type":"enabled"}}  ← DeepSeek 官方写法
+    #   enable_thinking  传 {"enable_thinking":true}         ← Qwen 系列常用写法
+    #
+    # 该差异属于供应商实现细节，因此做成配置项而不是写死在代码里；
+    # 后续接入多供应商配置（ai_config 表）时，这一项将由用户配置驱动。
+    # ------------------------------------------------------------
+    thinking-param: ${AI_THINKING_PARAM:thinking}
+
+    # 思考强度（reasoning effort）。默认留空。
+    # ⚠️ 实测反直觉现象：reasoning_effort=high 在非流式下反而使模型不再输出思考
+    #    （reasoning_tokens 变为 0）。因此默认不设置，交给供应商默认行为。
+    # ⚠️ 思考模式下 temperature / presence_penalty / frequency_penalty 不生效，
+    #    设置页需按模型区分可调参数，否则用户调整后无任何效果（静默失效）。
+    reasoning-effort: ${AI_REASONING_EFFORT:}
+
     # 必须与所选 Embedding 模型的输出维度一致。
     # 1024 匹配：硅基流动 BAAI/bge-m3（无限免费）、硅基流动 Qwen3-Embedding-0.6B、
     #            阿里云百炼 text-embedding-v3（默认 1024）。
