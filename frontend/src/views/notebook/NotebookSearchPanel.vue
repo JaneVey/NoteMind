@@ -47,7 +47,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ChevronDown, Folder, Search, X } from 'lucide-vue-next'
+// 修复记录（2026-10-08）：模板第 20 行用了 <Check> 但原文件漏了 import，
+// 导致搜索结果排序菜单里的对勾从不显示（只在控制台告警）。本次补齐。
+import { Check, ChevronDown, Folder, Search, X } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
 import { compareNotesBy, findFolderName, sortOptions } from './noteList'

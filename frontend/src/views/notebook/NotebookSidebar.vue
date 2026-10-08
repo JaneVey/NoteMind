@@ -163,12 +163,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-// 注意：模板里的 <Check> 与原文件一样**没有** import —— 原文件漏了它，
-// Vue 会告警并把 <Check> 渲染成未知元素（对勾实际不显示）。
-// 本次是纯结构性重构、不改变视觉，所以保持原样；修复方式见重构报告。
+// 修复记录（2026-10-08）：原文件漏了 Check 的 import，导致排序菜单里的对勾
+// 从不显示（Vue 只在浏览器控制台告警，界面上只表现为"少了个对勾"）。
+// 结构重构时为保证 DOM 逐字节一致而故意保留，已在本提交中补齐。
 import {
-  ArrowUpDown, ChevronDown, ChevronUp, Clock3, Folder, FolderPlus, ListTree,
-  NotepadText, PanelLeftClose, PanelTop, Search, SquarePen,
+  ArrowUpDown, Check, ChevronDown, ChevronUp, Clock3, Folder, FolderPlus,
+  ListTree, NotepadText, PanelLeftClose, PanelTop, Search, SquarePen,
 } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
