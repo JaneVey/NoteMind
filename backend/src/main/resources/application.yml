@@ -83,7 +83,7 @@ mybatis-plus:
       logic-delete-value: true
       logic-not-delete-value: false
   mapper-locations: classpath*:mapper/**/*.xml
-  type-aliases-package: com.notemind.entity
+  type-aliases-package: com.notemind.user.entity,com.notemind.note.entity,com.notemind.knowledge.entity,com.notemind.ai.entity
 
 # ============================================================
 # MinIO 对象存储

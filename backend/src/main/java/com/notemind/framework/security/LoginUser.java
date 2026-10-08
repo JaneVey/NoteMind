@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * 当前登录用户的主体（SecurityContext 的 principal）。
  *
- * <p><b>变更记录（2026-10-07）</b>：此前本类只接受 {@code NoteUser} 实体构造，
+ * <p><b>变更记录（2026-10-07）</b>：此前本类只接受 {@code SysUser} 实体构造，
  * 但全项目无任何地方使用它（死代码）——实际链路是过滤器往 SecurityContext 里
  * 放入一个裸 {@code Long}，再由各 Controller 强转取值。现已改为直接由 JWT 声明构造：
  *

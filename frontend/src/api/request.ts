@@ -68,10 +68,10 @@ client.interceptors.response.use(
   <T>(response: AxiosResponse<ApiResponse<T>>): T => {
     const result = response.data
     if (result.code !== 200) {
-      // 兼容"HTTP 200 但 body.code 非 200"的情况（后端已统一为状态码一致，此处兜底）
-      if (result.code === 401 && !isAuthEndpoint(response.config.url)) {
-        redirectToLogin()
-      }
+      // 说明：后端现在用「HTTP 状态码 + 业务码(1xxx/2xxx/3xxx…)」双轨表达失败原因。
+      // HTTP 状态码负责协议语义（401/403/404/400/500），业务码负责精确定位原因。
+      // 因此这里不再对业务码做特殊分支 —— 控制流一律交给 HTTP 状态码（见下方 error 分支），
+      // 业务码仅用于展示与按需分支，避免前端把它们写成魔法数字。
       throw new ApiError(result.code, result.message)
     }
     return result.data
