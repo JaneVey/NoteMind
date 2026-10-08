@@ -1,5 +1,5 @@
 import request from './request'
-import type { UserInfo } from '@/types/domain'
+import type { UserInfo } from '@/types/user'
 
 export function getUserProfile(): Promise<UserInfo> { return request({ url: '/user/profile', method: 'GET' }) }
 export function updateUserProfile(data: Partial<UserInfo>): Promise<UserInfo> { return request({ url: '/user/profile', method: 'PUT', data }) }

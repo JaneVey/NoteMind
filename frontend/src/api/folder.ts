@@ -1,5 +1,6 @@
 import request from './request'
-import type { Folder, Id } from '@/types/domain'
+import type { Id } from '@/types/common'
+import type { Folder } from '@/types/note'
 
 export type FolderPayload = Pick<Folder, 'name'> & Partial<Pick<Folder, 'notebookId'>>
 export function getFolders(notebookId: Id): Promise<Folder[]> { return request.get('/folder/list', { params: { notebookId } }) }

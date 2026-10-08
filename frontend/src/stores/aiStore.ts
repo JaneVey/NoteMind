@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createConversation as createConversationApi, deleteConversation as deleteConversationApi, favoriteConversation as favoriteConversationApi, getConversations as fetchConversationsApi, getMessages as getMessagesApi, renameConversation as renameConversationApi } from '@/api/ai'
-import type { ChatMessage, Conversation, Id } from '@/types/domain'
+import type { ChatMessage, Conversation } from '@/types/ai'
+import type { Id } from '@/types/common'
 
 export const useAiStore = defineStore('ai', () => {
   const conversations = ref<Conversation[]>([])

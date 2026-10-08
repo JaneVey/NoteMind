@@ -1,5 +1,6 @@
 import request from './request'
-import type { AiConfig, Id, PromptShortcut } from '@/types/domain'
+import type { AiConfig, PromptShortcut } from '@/types/ai'
+import type { Id } from '@/types/common'
 
 export function getAiConfigs(): Promise<AiConfig[]> { return request.get('/settings/ai-configs') }
 export function saveAiConfig(data: Omit<AiConfig, 'id'>): Promise<AiConfig> { return request.post('/settings/ai-config', data) }

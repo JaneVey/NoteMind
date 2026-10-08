@@ -1,5 +1,6 @@
 import request from './request'
-import type { ChatMessage, Conversation, Id } from '@/types/domain'
+import type { ChatMessage, Conversation } from '@/types/ai'
+import type { Id } from '@/types/common'
 
 export interface CreateConversationRequest { title?: string }
 export function getConversations(): Promise<Conversation[]> { return request.get('/ai/conversations') }

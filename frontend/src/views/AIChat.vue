@@ -313,7 +313,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, nextTick, ref, watch } from 'vue'
 import type { Component, PropType } from 'vue'
-import type { ChatMessage, MessageRole } from '@/types/domain'
+import type { ChatMessage, MessageRole } from '@/types/ai'
 import {
   AtSign,
   BarChart3,

@@ -1,14 +1,15 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi, register as registerApi } from '@/api/auth'
-import type { Id, UserInfo } from '@/types/domain'
+import type { Id } from '@/types/common'
+import type { UserInfo } from '@/types/user'
 
 const emptyUser = (): UserInfo => ({ userId: null, username: '', nickname: '', avatar: '' })
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(null)
   const userInfo = ref<UserInfo>(emptyUser())
   const isAuthenticated = computed(() => token.value !== null)
-  async function login(username: string, password: string): Promise<void> { const data = await loginApi({ username, password }); token.value = data.token; userInfo.value = { userId: data.userId ?? data.user?.userId ?? null, username: data.username ?? data.user?.username ?? '', nickname: data.nickname ?? data.user?.nickname ?? '', avatar: data.avatar ?? data.user?.avatar ?? '' }; localStorage.setItem('notemind_token', data.token); localStorage.setItem('notemind_user', JSON.stringify(userInfo.value)) }
+  async function login(username: string, password: string): Promise<void> { const data = await loginApi({ username, password }); token.value = data.token; userInfo.value = { userId: data.userId, username: data.username, nickname: data.nickname, avatar: data.avatar ?? '' }; localStorage.setItem('notemind_token', data.token); localStorage.setItem('notemind_user', JSON.stringify(userInfo.value)) }
   async function register(username: string, password: string, email: string, nickname: string): Promise<void> { await registerApi({ username, password, email, nickname }) }
   function logout(): void { token.value = null; userInfo.value = emptyUser(); localStorage.removeItem('notemind_token'); localStorage.removeItem('notemind_user') }
   function getToken(): string | null { return localStorage.getItem('notemind_token') }

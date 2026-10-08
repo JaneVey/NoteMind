@@ -1,5 +1,6 @@
 import request from './request'
-import type { Id, KnowledgeBase, KnowledgeDocument } from '@/types/domain'
+import type { Id } from '@/types/common'
+import type { KnowledgeBase, KnowledgeDocument } from '@/types/knowledge'
 
 export interface KnowledgeBasePayload { name: string; description?: string }
 export function getKnowledgeBases(): Promise<KnowledgeBase[]> { return request.get('/knowledge/bases') }

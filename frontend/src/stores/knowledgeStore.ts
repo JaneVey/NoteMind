@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createKnowledgeBase as createBaseApi, deleteDocument as deleteDocApi, deleteKnowledgeBase as deleteBaseApi, getDocuments as fetchDocsApi, getKnowledgeBases as fetchBasesApi, reparseDocument as reparseDocApi, uploadDocument as uploadDocApi } from '@/api/knowledge'
-import type { Id, KnowledgeBase, KnowledgeDocument } from '@/types/domain'
+import type { Id } from '@/types/common'
+import type { KnowledgeBase, KnowledgeDocument } from '@/types/knowledge'
 
 export const useKnowledgeStore = defineStore('knowledge', () => {
   const knowledgeBases = ref<KnowledgeBase[]>([])
@@ -16,7 +17,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   async function fetchDocuments(id: Id): Promise<void> { loading.value = true; try { documents.value = await fetchDocsApi(id) } catch { console.error('获取文档列表失败') } finally { loading.value = false } }
   async function uploadDocument(id: Id, file: File): Promise<KnowledgeDocument | null> { try { const document = await uploadDocApi(id, file); documents.value.push(document); return document } catch { console.error('上传失败'); return null } }
   async function deleteDocument(id: Id): Promise<void> { try { await deleteDocApi(id); documents.value = documents.value.filter((item) => item.id !== id) } catch { console.error('删除失败') } }
-  async function reparseDocument(id: Id): Promise<void> { try { await reparseDocApi(id); const document = documents.value.find((item) => item.id === id); if (document) document.status = 'processing' } catch { console.error('重新解析失败') } }
+  async function reparseDocument(id: Id): Promise<void> { try { await reparseDocApi(id); const document = documents.value.find((item) => item.id === id); if (document) document.chunkStatus = 'processing' } catch { console.error('重新解析失败') } }
   function backToList(): void { currentKbId.value = null; documents.value = [] }
   return { knowledgeBases, currentKbId, documents, currentDocument, loading, fetchKnowledgeBases, createKnowledgeBase, deleteKnowledgeBase, selectKnowledgeBase, fetchDocuments, uploadDocument, deleteDocument, reparseDocument, backToList }
 })
