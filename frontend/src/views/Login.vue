@@ -116,7 +116,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { BookOpen, Brain, Sparkles } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import {
@@ -131,6 +131,7 @@ import {
 } from '@/components/ui'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const username = ref('')
@@ -149,7 +150,10 @@ async function handleLogin() {
 
   try {
     await authStore.login(username.value, password.value)
-    router.push('/')
+    // 守卫拦截时会带上 redirect，登录后回到原目标页面；
+    // 只接受以 / 开头的站内路径，避免被构造成开放重定向
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    router.push(redirect.startsWith('/') ? redirect : '/')
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : '登录失败，请检查用户名和密码'
   } finally {

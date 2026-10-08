@@ -54,8 +54,9 @@ client.interceptors.request.use((config) => {
 /**
  * 清除本地登录状态并跳转登录页。
  * 用 window.location 而不是 router，避免 api 层反向依赖 router 造成循环引用。
+ * 导出供流式请求（utils/sse.ts）复用，保证两条链路的 401 行为一致。
  */
-function redirectToLogin(): void {
+export function redirectToLogin(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
   if (window.location.pathname !== '/login') {
