@@ -62,16 +62,14 @@ import FindPanel from './FindPanel.vue'
 import type { ViewMode } from './types'
 
 /**
- * 编辑器主区：顶部工具栏 + 查找面板 + 标题输入 + 正文编辑（三种视图模式）。
+ * 编辑器主区：工具栏 + 查找面板 + 标题输入 + 正文编辑（三种视图模式）。
  *
  * <p>标题与正文通过 `v-model:title` / `v-model:content` 与页面容器双向同步，
  * 内容变化后再用 `change` 事件通知容器（容器负责未保存标记与防抖保存）。
  *
- * <p><b>视图模式切换为什么用两个 watcher</b>：
- * `viewMode` 由容器持有（底部状态栏也要用它），切换只能通过 prop 变化感知：
- * - **渲染前**（默认 pre）把富文本内容写回 Markdown —— 此时旧的 contenteditable 元素还在；
- * - **渲染后**（post）把 Markdown 渲染进富文本编辑器 —— 此时新元素已经挂载。
- * 顺序与原来「先 sync 再 nextTick(load)」完全一致。
+ * <p>切换视图模式要用两个 watcher：`viewMode` 由容器持有，只能靠 prop 变化感知。
+ * 渲染前（默认 pre）把富文本写回 Markdown —— 此刻旧的 contenteditable 还在；
+ * 渲染后（post）把 Markdown 渲染进富文本 —— 此刻新元素才挂载。顺序不能调换。
  */
 const props = defineProps<{
   noteId: Id
@@ -94,7 +92,7 @@ const emit = defineEmits<{
 const showFindPanel = ref(false)
 const richEditorRef = ref<HTMLElement | null>(null)
 const sourceEditorRef = ref<HTMLTextAreaElement | null>(null)
-/** 输入法组字中：与 v-model 自带的保护一致，组字过程不写回模型 */
+/** 输入法组字中：组字过程不写回模型 */
 const composing = ref(false)
 
 const renderedNoteContent = computed(() => renderMarkdown(props.content))

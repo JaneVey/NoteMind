@@ -6,17 +6,11 @@ import { useAuthStore } from '@/stores/authStore'
 /**
  * 应用根组件。
  *
- * <h3>为什么这里要等一次"启动恢复"</h3>
- *
- * Access Token 只存在内存里（这是双 Token 方案防 XSS 的关键），
- * 所以刷新页面后内存是空的。恢复登录态的办法是**无条件调一次 /auth/refresh**：
- * refresh token 在 HttpOnly Cookie 里，浏览器会自动带上。
- *
- * <p>如果不等这个结果就渲染，用户会看到"先显示未登录、再跳成已登录"的闪烁。
- * 所以这里先渲染一个极简占位，恢复完成后再渲染真正的内容。
- *
- * <p><b>为什么不在 main.ts 里 await 后再 mount</b>：那会让整个首屏被一次网络请求阻塞，
- * 后端不可用时页面会长时间空白。放在这里既能消除闪烁，又不阻塞挂载。
+ * Access Token 只存内存，刷新页面后内存是空的；恢复登录态的办法是无条件调一次
+ * /auth/refresh —— refresh token 在 HttpOnly Cookie 里，浏览器会自动带上。
+ * 不等这个结果就渲染，会出现"先显示未登录、再跳成已登录"的闪烁，
+ * 所以这里先用极简占位挡住首屏。不在 main.ts 里 await 后再 mount，
+ * 是为了不让首屏被一次网络请求阻塞。
  */
 
 const auth = useAuthStore()
@@ -39,9 +33,8 @@ onMounted(async () => {
     <router-view />
 
     <!--
-      认证弹框挂在应用根部，全局唯一。
-      它由 useAuthDialog 的模块级状态驱动 —— 任何地方调用 requireAuth()
-      都能唤起它，不必在每个页面重复挂载。
+      认证弹框挂在应用根部、全局唯一，由 useAuthDialog 的模块级状态驱动 ——
+      任何地方调用 requireAuth() 都能唤起它，不必在每个页面重复挂载。
     -->
     <AuthDialog />
   </template>

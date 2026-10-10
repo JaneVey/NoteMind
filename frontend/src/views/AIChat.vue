@@ -89,7 +89,7 @@ function selectConversation(item: ConversationSummary): void {
   messages.value = []
 }
 
-/** 右键菜单只切高亮，不重置消息与输入框 —— 与原实现一致 */
+/** 右键菜单只切高亮，不重置消息与输入框（与左键切换行为不一致） */
 function activateConversation(id: Id): void {
   activeConversationId.value = id
 }

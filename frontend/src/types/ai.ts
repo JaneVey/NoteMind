@@ -2,23 +2,19 @@ import type { Id, IsoDateTime } from './common'
 import type { ChunkSourceInfo } from './knowledge'
 
 /**
- * AI 模块类型。
- *
- * <p>与后端 `com.notemind.ai` 模块、数据库表 `ai_*` / `prompt_shortcut` 对应。
+ * AI 模块类型，对应后端 `com.notemind.ai` 与数据库表 `ai_*` / `prompt_shortcut`。
  */
 
 /**
  * AI 供应商配置（数据库 `ai_config`）。
  *
- * <p><b>注意</b>：`apiKey` **只会在创建/更新时提交，读取时后端只回显后四位**
- * （《后端开发规范》安全条款：敏感数据展示必须脱敏）。
+ * <p>`apiKey` 只在创建/更新时提交，读取时后端只回显后四位。
  */
 export interface AiConfig {
   id: Id
   userId: Id
   /** 供应商标识：siliconflow / deepseek / openai ... */
   providerName: string
-  /** 展示名 */
   displayName: string
   /** 脱敏后的 Key，如 `sk-***abcd` */
   apiKeyMasked?: string
@@ -33,13 +29,7 @@ export interface AiConfig {
   updatedAt: IsoDateTime
 }
 
-/**
- * 会话（数据库 `ai_conversation`）。
- *
- * <p><b>类型名说明</b>：后端实体叫 `AiConversation`，前端这里叫 `Conversation` ——
- * 因为在前端语境里 `ai/` 目录已经限定了范围，加前缀是冗余。
- * 这类"跨层不同名"必须登记在《项目结构与命名规范》的概念词典里，否则就是隐患。
- */
+/** 会话（数据库 `ai_conversation`）。后端实体叫 `AiConversation`，前端不加 `Ai` 前缀 */
 export interface Conversation {
   id: Id
   userId: Id
@@ -48,7 +38,7 @@ export interface Conversation {
   knowledgeBaseId: Id | null
   providerName: string
   model: string
-  /** 对话模式：chat 普通对话 / rag 知识库检索增强 */
+  /** chat 普通对话 / rag 知识库检索增强 */
   mode: 'chat' | 'rag'
   isFavorite: boolean
   messageCount: number
@@ -66,13 +56,10 @@ export interface ChatMessage {
   role: MessageRole
   content: string
   /**
-   * 思考链内容。
+   * 思考链。数据库里是独立列 `reasoning_content` —— 它可能和正文一样长，
+   * 塞进 JSONB 的 `metadata` 会让它显著膨胀。
    *
-   * <p>与正文分开存储：它可能和正文一样长，放进 `metadata` 会让 JSONB 显著膨胀，
-   * 因此数据库里是独立列 `reasoning_content`。
-   *
-   * <p>注意：**流式响应默认不返回思考链**，必须显式传参
-   * （见后端 `app.ai.thinking-param` 配置），这是供应商侧的行为差异。
+   * <p>流式响应默认不返回思考链，必须显式传参（见后端 `app.ai.thinking-param`）。
    */
   reasoningContent?: string
   tokens?: number
@@ -81,16 +68,15 @@ export interface ChatMessage {
   createdAt?: IsoDateTime
   /** 仅前端使用的流式状态 */
   streaming?: boolean
-  /** 仅前端使用：错误提示 */
+  /** 仅前端使用 */
   error?: string
 }
 
 /**
  * 快捷指令（数据库 `prompt_shortcut`）。
  *
- * <p>`prompt` 里可以包含占位符 `{selection}` —— 选中文本会被替换进去。
- * **注意不是 `{content}`**：项目此前 `init.sql` 与设计文档用了不同的占位符，
- * 不改的话 8 个预设指令会把字面量 `{content}` 直接发给大模型，静默失效。
+ * <p>`prompt` 里的占位符是 `{selection}`，**不是 `{content}`** ——
+ * 写错的话预设指令会把字面量直接发给大模型。
  */
 export interface PromptShortcut {
   id: Id
@@ -98,7 +84,7 @@ export interface PromptShortcut {
   name: string
   prompt: string
   description: string | null
-  /** 是否为系统预设（预设不可删除） */
+  /** 系统预设不可删除 */
   isPreset: boolean
   sortOrder: number
   isEnabled: boolean
@@ -107,17 +93,10 @@ export interface PromptShortcut {
 }
 
 /**
- * SSE 流式分片。
+ * SSE 流式分片，与后端 `ChatStreamChunk` 一一对应。
  *
- * <p>与后端 `ChatStreamChunk` 一一对应，`type` 决定如何消费：
- * - `reasoning` → 追加到思考链（默认折叠展示）
- * - `content`   → 追加到正文
- * - `done`      → **显式结束标记**，前端必须据此收尾
- * - `error`     → 错误信息
- *
- * <p><b>为什么必须有 `done`</b>：Vite 开发代理**不会关闭 SSE 连接**
- * （直连后端 2.7 秒正常关闭，经代理会一直挂到超时）。
- * 如果前端只靠"流关闭"判断结束，界面会永远停在"生成中"。
+ * <p>`done` 是显式结束标记，前端必须据此收尾：Vite 开发代理不会关闭 SSE 连接，
+ * 只靠"流关闭"判断结束会让界面永远停在"生成中"。
  */
 export interface ChatStreamChunk {
   type: 'reasoning' | 'content' | 'done' | 'error'

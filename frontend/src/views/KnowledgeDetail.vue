@@ -14,12 +14,8 @@ const deleting = ref(false)
 const doc = ref<KnowledgeDocumentDetail | null>(null)
 
 /**
- * 状态展示配置。
- *
- * <p><b>变更记录</b>：此前这里有 **7 个条目**，把 `completed`/`done`/`parsed`
- * 三个同义词和 `failed`/`error` 两个同义词全列上了，理由是"以防万一"。
- * 但后端只认 4 个状态，多出来的分支永远走不到，反而让 `Record` 类型失去约束力
- * （真实值写错时编译器不会报错）。
+ * 状态展示配置。只列后端真正会返回的 4 个状态 ——
+ * 补同义词会让 `Record<DocumentStatus, ...>` 失去约束力，真实值写错时编译器不报错。
  */
 const STATUS_CONFIG: Record<DocumentStatus, { label: string; cls: string }> = {
   pending:    { label: '待解析',   cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },

@@ -3,12 +3,11 @@ import type { Id } from '@/types/common'
 /**
  * 笔记本页（`views/Notebook.vue`）的私有视图模型。
  *
- * <p><b>为什么放在页面目录而不是 `src/types/`</b>：
- * `src/types/note.ts` 描述的是**后端接口形状**（正文叫 `contentMd`，时间是 ISO-8601 字符串）；
- * 而笔记本页目前仍在用原型阶段的本地 mock 数据（正文叫 `content`，时间是比较用的数值，
- * 列表文案是预生成的 `updatedLabel`）。两者是不同的模型，强行合并会改变页面行为。
- * 本次重构不允许改动 `src/types/`，所以页面私有的视图模型放在页面自己的目录下。
- * 后端笔记接口接通后，这里应整体替换为 `@/types/note` 的 `Note` / `Folder`。
+ * <p>它与 `@/types/note.ts` 是两个模型：后者描述后端接口形状（正文叫 `contentMd`、
+ * 时间是 ISO-8601 字符串），这里是原型阶段的本地 mock 数据（正文叫 `content`、
+ * 时间是用于比较的数值、列表文案是预生成的 `updatedLabel`），强行合并会改变页面行为。
+ *
+ * <p>后端笔记接口接通后，整体替换为 `@/types/note` 的 `Note` / `Folder`。
  */
 
 /** 侧栏 Tab */

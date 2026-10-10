@@ -54,7 +54,7 @@ function onInput(event: Event): void {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 }
 
-/** Enter 发送，Shift+Enter 换行 —— 与原实现一致（其余按键不拦截） */
+/** Enter 发送，Shift+Enter 换行 */
 function onKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter') return
   if (!event.shiftKey) {

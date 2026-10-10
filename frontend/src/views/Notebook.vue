@@ -59,9 +59,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-// 修复记录（2026-10-08）：原文件漏了 Check 的 import，导致底部状态栏「视图模式」
-// 菜单里 3 处对勾从不显示。结构重构时为保证 DOM 逐字节一致而故意保留，
-// 已在本提交中补齐。
 import { Check, CloudUpload, Code2, Eye, PenLine, Save } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'

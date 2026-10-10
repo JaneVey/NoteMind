@@ -654,7 +654,7 @@ const systemConfig = reactive({
 const userInfo = reactive({
   username: authStore.user?.username || '未登录',
   nickname: authStore.user?.nickname || '未登录',
-  // 原先写死 'user@example.com'，是原型占位。现在用真实值，游客留空
+  // 用真实邮箱；游客留空
   email: authStore.user?.email || '',
 })
 

@@ -13,16 +13,9 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 用户中心接口。
  *
- * <p><b>变更记录</b>
- * <ul>
- *   <li>2026-10-07：改用 {@link SecurityUtils#currentUserId()}，不再手写
- *       {@code (Long) authentication.getPrincipal()} 强转；</li>
- *   <li>2026-10-08：注入 {@link UserService} 而非 {@code SysUserMapper} ——
- *       Controller 不再承载业务逻辑（此前它直接查库、判断密码、拼 VO）；
- *       入参由 {@code Map<String, String>} 改为带校验注解的 DTO。</li>
- * </ul>
- *
- * <p>本类的职责被限定为三件事：<b>取当前用户 → 调 Service → 包装响应</b>。
+ * <p>职责限定为三件事：取当前用户 → 调 Service → 包装响应。
+ * 当前用户一律走 {@link SecurityUtils#currentUserId()}，不要手写
+ * {@code (Long) authentication.getPrincipal()} 强转。
  */
 @RestController
 @RequestMapping("/api/user")

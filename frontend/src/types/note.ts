@@ -1,13 +1,10 @@
 import type { Id, IsoDateTime } from './common'
 
 /**
- * 笔记模块类型。
+ * 笔记模块类型，对应后端 `com.notemind.note` 与数据库表 `note_*`。
  *
- * <p>与后端 `com.notemind.note` 模块、数据库表 `note_*` 对应。
- *
- * <p><b>术语统一</b>：项目此前的 UI 文案用「仓库」，但代码是 `notebook`。
- * 现统一为「笔记本」—— 「仓库」在中文开发语境里几乎等同于 Git 仓库，跨层沟通有歧义，
- * 且容易与 Obsidian 的 Vault 概念混淆。
+ * <p>术语统一为「笔记本」（代码里的 `notebook`）。UI 文案不要再写「仓库」——
+ * 中文开发语境里那几乎等同于 Git 仓库，也容易与 Obsidian 的 Vault 混淆。
  */
 
 /** 笔记本（数据库 `note_notebook`） */
@@ -38,10 +35,8 @@ export interface Folder {
 /**
  * 笔记（数据库 `note`）。
  *
- * <p><b>字段名说明</b>：正文用 `contentMd` 而不是 `content` ——
- * 与数据库列 `content_md`、Java 实体 `contentMd` 保持**端到端同名**。
- * 项目此前的教训就是"同一概念在 DB / Java / 前端 / UI 文案里各叫各的"，
- * 读代码要在脑子里做映射，改代码容易漏改。
+ * <p>正文用 `contentMd`，与数据库列 `content_md`、Java 实体 `contentMd` 端到端同名 ——
+ * 同一概念在 DB / Java / 前端各叫各的，读代码要做脑内映射，改代码容易漏改。
  */
 export interface Note {
   id: Id

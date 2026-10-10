@@ -65,11 +65,8 @@ const emit = defineEmits<{
 }>()
 
 /**
- * 标题跑马灯。
- *
- * <p>原实现把「当前悬停的会话 id」与「各会话的滚动距离」放在父组件里共享，
- * 这里下沉到行内 —— 每行只关心自己，行为完全一致：
- * 悬停 180ms 后测量标题溢出量，溢出才播放滚动动画。
+ * 标题跑马灯：悬停 180ms 后测量标题溢出量，溢出才播放滚动动画。
+ * 每行只管自己的悬停状态与滚动距离。
  */
 const hovering = ref(false)
 const scrollOffset = ref<string | null>(null)
@@ -120,7 +117,7 @@ function onDragEnd(): void {
   emit('drag-end')
 }
 
-/** 不可拖拽的行完全不挂拖拽监听（与原实现一致：悬挂标记的「已置顶」分组没有 drop 目标） */
+/** 不可拖拽的行不挂拖拽监听 —— 悬挂标记的「已置顶」分组没有 drop 目标 */
 const dragListeners = computed<DragListeners>(() => props.draggable
   ? { dragstart: onDragStart, dragover: onDragOver, drop: onDrop, dragend: onDragEnd }
   : {})

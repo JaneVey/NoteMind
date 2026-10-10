@@ -15,20 +15,12 @@ import reactor.core.publisher.Flux;
 /**
  * AI 对话接口。
  *
- * <p>路径 {@code /api/ai/chat/stream} 与前端 {@code src/api/ai.ts} 中已有的
- * {@code URL_SEND_CHAT} 常量一致，前端无需改动接口地址。
+ * <p>路径要与前端 {@code src/api/ai.ts} 的 {@code URL_SEND_CHAT} 一致。
+ * 直接返回 Spring AI 的 Reactor {@code Flux}（Spring MVC 在类路径有 spring-webflux 时
+ * 即可适配），比包一层 {@code SseEmitter} 省事，也天然有背压。需要 Bearer token。
  *
- * <p><b>为什么返回 {@code Flux} 而不是 {@code SseEmitter}</b>：
- * Spring AI 的流式能力本身就是 Reactor 的 {@code Flux}，
- * 直接把它（经映射后）返回给 Spring MVC 最省事，也天然获得背压支持。
- * Spring MVC 在类路径存在 spring-webflux 时即可适配响应式返回值，
- * 并按 {@code text/event-stream} 逐条写出。
- *
- * <p><b>鉴权</b>：本接口位于 {@code /api/ai/**} 之下，受 Spring Security 保护，
- * 需要携带 {@code Authorization: Bearer <token>}。
- *
- * <p><b>错误处理</b>：流式过程中出错不会抛出（抛了前端只看到连接断开、拿不到原因），
- * 而是由 {@link ChatService} 发出一个 {@code type=error} 事件。</p>
+ * <p>流式过程中出错不要往外抛 —— 前端只会看到连接断开、拿不到原因，
+ * 要由 {@link ChatService} 发一个 {@code type=error} 事件。
  */
 @RestController
 @RequestMapping("/api/ai")

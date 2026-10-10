@@ -264,12 +264,10 @@ const avatarText = computed(() => {
 /**
  * 打开登录弹框。
  *
- * <p>游客模式下入口有多处（用户菜单、账户面板），统一走 {@code useAuthDialog}，
- * 保证全局只有一个弹框实例。
+ * <p>入口有多处（用户菜单、账户面板），统一走 `useAuthDialog`，保证全局只有一个弹框实例。
  *
- * <p><b>刻意不传 reason</b>：这是用户主动点"登录"，不是被某个动作打断，
- * 弹框自身的说明文字已经足够。传了反而会出现两段意思相近的话。
- * {@code reason} 只在该动作被登录拦住时才有意义（例如"发送消息需要先登录"）。
+ * <p>刻意不传 `reason`：这是用户主动点「登录」，不是被某个动作打断。
+ * 传了会出现两段意思相近的说明文字；`reason` 只在该动作被登录拦住时才有意义。
  */
 function openLogin(): void {
   showUserMenu.value = false
@@ -295,9 +293,7 @@ async function handleSaveProfile() {
     if (authStore.isLoggedIn) {
       await updateUserProfile({ nickname: name })
     }
-    // 变更记录：原先这里直接写 localStorage，是页面越界碰存储细节（分层问题）。
-    // 现在交给 store 维护 —— 而且新方案**不再持久化任何用户信息**，
-    // 登录态完全由 HttpOnly Cookie + 启动时静默刷新恢复。
+    // 本地不维护任何用户信息的持久化：登录态由 HttpOnly Cookie + 启动时静默刷新恢复
     authStore.patchUser({ nickname: name })
     showProfileDialog.value = false
   } finally {
@@ -306,8 +302,7 @@ async function handleSaveProfile() {
 }
 
 async function handleLogout() {
-  // 新实现会调用 /auth/logout 让服务端**真正吊销** refresh token，
-  // 而不只是让前端"忘记"它 —— 这是本次认证重设计要解决的核心问题之一
+  // 让服务端真正吊销 refresh token，而不只是前端"忘记"它
   await authStore.logout()
   void router.push('/')
 }
@@ -319,8 +314,7 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 onMounted(() => {
-  // 变更记录：原先这里调 initFromStorage()，而 main.ts 的启动流程已经恢复过登录态，
-  // 属于重复且位置不当。现在恢复统一由 App.vue → authStore.bootstrap() 负责。
+  // 登录态恢复统一由 App.vue → authStore.bootstrap() 负责，这里只挂点击外部关闭
   document.addEventListener('click', handleClickOutside)
 })
 

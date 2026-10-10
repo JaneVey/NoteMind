@@ -3,22 +3,11 @@ import { useAuthDialog } from '@/composables/useAuthDialog'
 import type { AuthTab } from '@/composables/useAuthDialog'
 
 /**
- * 认证入口：打开弹框，然后回到首页。
+ * 认证入口：打开弹框，然后回到目标页（`redirect` 查询参数）。
  *
- * <h3>为什么删掉了独立的登录/注册页面</h3>
- *
- * 游客模式下，需要登录的**动作**会自己弹出认证框（见 `composables/useAuthGuard.ts`），
- * 用户菜单里的"登录 / 注册"也走同一个弹框。也就是说**弹框已覆盖全部场景**，
- * 再维护一套独立页面就是重复的界面面 —— 而重复的界面面必然走偏。
- *
- * <h3>那为什么还保留 /login 与 /register 路由</h3>
- *
- * 因为它们作为 **URL** 仍然有价值：
- * <ul>
- *   <li>可收藏、可分享（老的链接不会 404）</li>
- *   <li>将来 GitHub OAuth 的回调、以及找回密码的邮件链接需要一个落地地址</li>
- * </ul>
- * 所以让它们"打开弹框 + 回到首页"——**URL 依然有效，但只有一套认证界面**。
+ * <p>没有独立的登录/注册页面 —— 弹框已覆盖全部场景（动作拦截、用户菜单、注册）。
+ * /login 与 /register 仍然保留，因为它们作为 URL 有价值：可收藏可分享、老的链接不会 404，
+ * 将来 GitHub OAuth 回调与找回密码邮件也需要落地地址。
  *
  * @param tab 打开弹框时显示哪个标签
  */
