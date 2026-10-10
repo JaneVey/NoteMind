@@ -4,16 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.util.StringUtils;
 
 /**
- * 从请求中提取客户端信息（IP、UA）。
+ * 从请求中提取客户端信息（IP、UA），用于登录审计与"登录设备"展示。
  *
- * <p>用于登录审计与"登录设备"展示。
- *
- * <p><b>⚠️ 关于 {@code X-Forwarded-For}</b>：这个头是<b>可以伪造</b>的。
- * 只有在请求确实经过我们信任的反向代理（Nginx）时它才有意义；
- * 若服务直接暴露公网，攻击者可以随便填。
- *
- * <p>本项目部署时 Nginx 在应用前面，因此优先读该头；
- * 但**不要把它当作安全边界** —— 它只用于日志与展示，不用于权限判定。
+ * <p>X-Forwarded-For 可以伪造，只有请求确实经过信任的反向代理时才有意义，
+ * 只能用于日志与展示，不能作为安全边界。
  */
 public final class RequestUtils {
 

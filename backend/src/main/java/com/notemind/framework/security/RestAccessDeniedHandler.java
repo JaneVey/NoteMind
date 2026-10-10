@@ -11,13 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * 已认证但无权限访问时的响应（403）。
- *
- * <p>与 401 区分开：401 表示"你是谁不知道"，403 表示"知道你是谁，但不允许"。
- * 前端对两者的处理不同（401 跳登录，403 只提示）。
- *
- * <p><b>变更记录（2026-10-08）</b>：业务码改用 {@link ErrorCode#FORBIDDEN}（1003），
- * 与 SecurityResponseWriter 以外的其他失败路径保持同一套错误码体系。
+ * 已认证但无权限访问时的响应（403），与 401 区分：401 是身份未知，403 是身份已知但不允许。
  */
 @Slf4j
 @Component

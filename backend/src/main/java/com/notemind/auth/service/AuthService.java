@@ -7,10 +7,7 @@ import com.notemind.auth.dto.RegisterRequest;
 /**
  * 认证服务。
  *
- * <p><b>职责边界</b>：不接触 HTTP 对象。Cookie 的读写在 Controller 完成，
- * 本服务只通过参数接收 / 返回 token 字符串 ——
- * 这既是《后端开发规范》"Service 层禁止出现 Web 概念"的要求，
- * 也让本服务可以脱离 Web 上下文做单元测试。
+ * <p>不接触 HTTP：Cookie 的读写在 Controller 完成，本服务只通过参数接收 / 返回 token 字符串。
  */
 public interface AuthService {
 
@@ -18,7 +15,7 @@ public interface AuthService {
     void register(RegisterRequest request);
 
     /**
-     * 登录，支持<b>用户名或邮箱</b>。
+     * 登录，支持用户名或邮箱。
      *
      * @param userAgent 客户端 UA（记入会话，用于"登录设备"展示）
      * @param clientIp  客户端 IP
@@ -27,7 +24,9 @@ public interface AuthService {
     AuthResult login(LoginRequest request, String userAgent, String clientIp);
 
     /**
-     * 用 refresh token 换取新的一对凭据（内部完成轮换：旧 token 作废）。
+     * 用 refresh token 换取新的一对凭据。
+     *
+     * <p>内部完成轮换：旧 refresh token 会作废。
      *
      * @return 新的响应体内容 + 新的 refresh token
      */

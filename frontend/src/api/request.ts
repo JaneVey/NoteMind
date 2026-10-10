@@ -14,11 +14,8 @@ export interface ApiResponse<T> {
 }
 
 /**
- * 业务错误。
- *
- * <p>同时携带<b>业务码</b>与 <b>HTTP 状态码</b>：
- * 后端用「HTTP 状态码表协议语义 + 业务码精确定位原因（1xxx/2xxx/…）」双轨表达，
- * 前端控制流一律依赖 HTTP 状态码，业务码仅用于展示与按需分支。
+ * 业务错误，同时携带业务码与 HTTP 状态码。
+ * 前端控制流一律依赖 HTTP 状态码，业务码只用于展示与按需分支。
  */
 export class ApiError extends Error {
   readonly code: number
@@ -47,13 +44,9 @@ interface TypedRequest {
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean }
 
 /**
- * 这些接口的 401 表示「凭据错误」或「会话确实结束」，**不能触发自动刷新**：
- * <ul>
- *   <li>{@code /auth/login}、{@code /auth/register} —— 密码错了，不是会话过期。
- *       若触发刷新，用户在登录页输错密码会看到"登录已过期"，且刚填的状态被清掉</li>
- *   <li>{@code /auth/refresh} —— 刷新本身失败，再触发刷新就是无限递归</li>
- *   <li>{@code /auth/logout} —— 登出时 token 已失效是正常情况</li>
- * </ul>
+ * 这些接口的 401 表示凭据错误或会话确实结束，不能触发自动刷新：
+ * login/register 是密码错了，触发刷新会让用户在登录页看到"登录已过期"；
+ * refresh 是刷新本身失败，再刷新即无限递归；logout 时 token 已失效属正常。
  */
 const NO_REFRESH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout']
 
@@ -70,7 +63,7 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
-  // ★ 从内存读，不读 localStorage —— access token 从不落盘
+  // 从内存读，不读 localStorage —— access token 从不落盘
   const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -105,14 +98,13 @@ client.interceptors.response.use(
       const auth = await refreshAccessToken()
       if (!auth) {
         // refresh token 也失效了 —— 会话真的结束。
-        // 通知状态失效（由 main.ts 注入的回调负责清 store 并引导重新登录）。
-        // 注意：这里才该通知，启动时的静默刷新失败只代表"当前是游客"。
+        // 只有这里才该通知；启动时的静默刷新失败只代表"当前是游客"。
         notifySessionExpired()
         return Promise.reject(new ApiError(401, '登录已过期，请重新登录', 401))
       }
 
-      // 重放原请求。标记 _retried，保证只重试一次 ——
-      // 否则若新 token 仍被拒（例如账号刚被禁用），会无限循环
+      // 重放原请求。_retried 保证只重试一次 ——
+      // 否则新 token 仍被拒（例如账号刚被禁用）会无限循环
       config._retried = true
       return client.request(config)
     }

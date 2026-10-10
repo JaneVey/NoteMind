@@ -13,24 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * 全局异常处理器。
+ * 全局异常处理器：把各层抛出的异常统一转成「HTTP 状态码 + 业务码 + 文案」的响应。
  *
- * <p><b>设计</b>：应用内部各层抛出有业务含义的异常，到这一层统一转成
- * 「HTTP 状态码 + 业务码 + 文案」的响应。业务代码不再自己拼 {@code Result.error(...)}。
- *
- * <p><b>变更记录</b>
- * <ol>
- *   <li>2026-10-07：统一 HTTP 状态码 —— 此前登录失败返回 HTTP 200 + body 中 code=401，
- *       而安全层返回 HTTP 401，同一语义两种状态码；</li>
- *   <li>2026-10-08：引入 {@link ErrorCode}，业务码与 HTTP 状态码**分开**：
- *       HTTP 表达协议语义，业务码精确定位原因（1xxx 通用 / 2xxx 用户 / 3xxx 笔记 / 4xxx 知识库 / 5xxx AI）。</li>
- * </ol>
- *
- * <p><b>日志级别选择</b>（遵循"error 只记需要人介入的问题"）：
- * <ul>
- *   <li>业务异常（可预期的用户错误）→ {@code WARN}</li>
- *   <li>系统异常（代码缺陷/依赖故障）→ {@code ERROR}，且必须带堆栈</li>
- * </ul>
+ * <p>日志级别：业务异常（可预期的用户错误）记 WARN，系统异常记 ERROR 且必须带堆栈。
  */
 @Slf4j
 @RestControllerAdvice
@@ -76,9 +61,7 @@ public class GlobalExceptionHandler {
     /**
      * 路径不存在。
      *
-     * <p><b>变更记录（2026-10-08）</b>：此前这类请求会被下面的 {@code Exception} 兜底捕获，
-     * 返回 <b>500 服务器内部错误</b> —— 明明是客户端请求了不存在的地址，却报成服务端故障，
-     * 会误导排查方向，也让前端无法区分。
+     * <p>必须单独处理：否则会被 {@code Exception} 兜底捕获，把客户端请求错地址报成 500。
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Result<Void>> handleNoResource(NoResourceFoundException e) {

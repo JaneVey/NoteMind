@@ -16,11 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户中心服务实现。
- *
- * <p><b>变更记录（2026-10-08）</b>：业务逻辑此前直接写在 {@code UserController} 里
- * 并让它注入了 {@code SysUserMapper} —— 违反《后端开发规范》：
- * Controller 只做「校验参数 + 调 Service + 包装响应」，禁止注入 Mapper。
- * 现逻辑下沉到本类，Controller 只依赖 {@link UserService}。
  */
 @Slf4j
 @Service
@@ -86,9 +81,7 @@ public class UserServiceImpl implements UserService {
         vo.setUserId(user.getId());
         vo.setUsername(user.getUsername());
         vo.setEmail(user.getEmail());
-        // 变更记录（2026-10-08）：UserProfileVO 新增 emailVerified 后，
-        // 这里漏了赋值 —— 接口返回 null，前端无法判断是否已验证。
-        // 是端到端测试发现的（字段加了但转换处没跟上）。
+        // 新增 VO 字段时这里必须同步赋值，漏了接口就返回 null
         vo.setEmailVerified(user.getEmailVerified());
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());

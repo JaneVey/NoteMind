@@ -9,14 +9,10 @@ import lombok.Data;
 /**
  * 注册请求。
  *
- * <p><b>变更记录（2026-10-08）</b>：{@code email} 此前**没有任何校验** ——
- * 而数据库已将它改为 {@code NOT NULL}，不填邮箱会直接撞约束、返回 500。
- * 现补上 {@code @NotBlank} + {@code @Email} + 长度上限。
+ * <p>email 必填：它是账号找回的唯一途径。
  *
- * <p>为什么邮箱必填：它是**账号找回的唯一途径**。没有邮箱的账号一旦忘记密码就只能作废。
- *
- * <p>注意：数据库里 {@code username} 与 {@code email} 都是 <b>CITEXT</b>（大小写不敏感唯一），
- * 所以 {@code Admin} 与 {@code admin} 会被正确判定为重复 —— 应用层不需要再做 lower() 处理。
+ * <p>数据库里 username 与 email 都是 CITEXT（大小写不敏感唯一），
+ * 所以应用层不需要再做 lower() 处理。
  */
 @Data
 public class RegisterRequest {

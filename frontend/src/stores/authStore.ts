@@ -8,20 +8,9 @@ import type { AuthResponse, LoginRequest, RegisterRequest, UserInfo } from '@/ty
 /**
  * 认证状态。
  *
- * <h3>与旧实现的关键区别</h3>
- *
- * | 旧实现 | 现在 |
- * |---|---|
- * | token 与用户信息都存 localStorage | **什么都不持久化**。access 只在内存，refresh 在 HttpOnly Cookie |
- * | 刷新页面靠 localStorage 恢复 | 靠启动时**静默刷新**（Cookie 自动带上）恢复 |
- * | 登出只清本地 | 调 `/auth/logout` 让服务端**真正吊销** |
- *
- * <h3>为什么不需要持久化任何东西</h3>
- *
- * refresh token 在 HttpOnly Cookie 里，浏览器会自动携带。
- * 启动时无条件调一次 `/auth/refresh`：成功即为已登录，失败即为游客。
- * 这比"在 localStorage 存个标记来判断要不要刷新"简单得多 ——
- * 少一个状态就少一种不一致的可能。
+ * <p>前端不持久化任何认证数据：access token 在内存（utils/authToken），refresh token 在
+ * HttpOnly Cookie 里由浏览器自动携带。启动时无条件调一次 {@code /auth/refresh}，
+ * 成功即已登录，失败即游客 —— 比在 localStorage 存个标记再判断简单，也少一种状态不一致。
  */
 export const useAuthStore = defineStore('auth', () => {
   /** 当前用户。null 表示游客 */
@@ -36,8 +25,8 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 会话已失效标记。
    *
-   * <p>与"未登录"不同：它是"**本来登录着，但会话结束了**"（refresh token 过期或被吊销）。
-   * 界面据此提示用户重新登录，而不是当成普通游客。
+   * <p>与"未登录"不同：它是"本来登录着，但会话结束了"（refresh token 过期或被吊销）。
+   * 界面据此提示重新登录，而不是当成普通游客。
    */
   const sessionExpired = ref(false)
 
@@ -67,10 +56,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * 标记会话失效。由 `main.ts` 通过 `onSessionExpired` 注入给 api 层调用。
+   * 标记会话失效。由 main.ts 通过 onSessionExpired 注入给 api 层调用。
    *
-   * <p>之所以用回调注入、而不是让 api 层直接 import store：那会形成
-   * `request → authRefresh → store → api/auth → request` 的循环引用。
+   * <p>用回调注入而不是让 api 层直接 import store：那会形成
+   * request → authRefresh → store → api/auth → request 的循环引用。
    */
   function markSessionExpired(): void {
     clearLocal()
@@ -89,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
     applyAuth(await loginApi(payload))
   }
 
-  /** 注册。成功后**不自动登录** —— 由界面引导用户登录，保持流程可预期 */
+  /** 注册。成功后不自动登录 —— 由界面引导登录，保持流程可预期 */
   async function register(payload: RegisterRequest): Promise<void> {
     await registerApi(payload)
   }
@@ -98,8 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await logoutApi()
     } catch {
-      // 即使服务端调用失败（网络问题、token 已失效），也必须清掉本地状态，
-      // 否则用户会看到"点了登出但还登录着"
+      // 服务端调用失败也必须清本地状态，否则会出现"点了登出但还登录着"
     }
     clearLocal()
   }
@@ -107,9 +95,8 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 应用启动时恢复登录态。
    *
-   * <p>无条件尝试一次静默刷新：有有效 Cookie 就恢复，没有就当游客。
-   * **失败时不设置 `sessionExpired`** —— 首次访问的用户本来就没登录过，
-   * 不该看到一个"会话已失效"的提示。
+   * <p>失败时不设置 sessionExpired —— 首次访问的用户本来就没登录过，
+   * 不该看到"会话已失效"的提示。
    */
   async function bootstrap(): Promise<void> {
     if (bootstrapped) return

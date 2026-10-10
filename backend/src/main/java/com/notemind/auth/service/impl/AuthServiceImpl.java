@@ -26,14 +26,8 @@ import java.time.OffsetDateTime;
 /**
  * 认证服务实现。
  *
- * <h3>登录流程中的四个检查（顺序有意义）</h3>
- * <ol>
- *   <li>账号是否存在 —— <b>与密码错误返回同一个错误码</b>，避免暴露"该用户名已注册"</li>
- *   <li>是否有密码 —— 第三方登录注册的账号 {@code password} 为 null，
- *       必须明确提示"请用 GitHub 登录"，而不是含糊的"用户名或密码错误"</li>
- *   <li>密码是否匹配</li>
- *   <li>账号是否被禁用</li>
- * </ol>
+ * <p>登录按顺序做四项检查，顺序有意义：账号存在 → 有密码 → 密码匹配 → 未禁用。
+ * 其中「账号不存在」必须与「密码错误」返回同一个错误码。
  */
 @Slf4j
 @Service
@@ -47,9 +41,8 @@ public class AuthServiceImpl implements AuthService {
     /**
      * 注册。
      *
-     * <p>这里**先查重再插入**，并发下存在竞态（两个请求同时通过查重）。
-     * 但 {@code sys_user.username} 与 {@code email} 都有唯一索引，
-     * 因此即使竞态发生，数据库仍会兜住，不会产生重复账号。
+     * <p>先查重再插入，并发下存在竞态；但 username 与 email 都有唯一索引，
+     * 数据库会兜住，不会产生重复账号。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -61,9 +54,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.USERNAME_EXISTS);
         }
 
-        // email 在数据库里是 CITEXT（大小写不敏感唯一），等值比较即可 ——
-        // Admin@x.com 与 admin@x.com 会被正确判定为同一个邮箱，应用层不需要手动 lower()
-        // （前提是 JDBC URL 带了 stringtype=unspecified，否则 citext 会被 text 比较绕过）
+        // email 是 CITEXT（大小写不敏感唯一），等值比较即可，应用层不需要 lower()；
+        // 前提是 JDBC URL 带了 stringtype=unspecified，否则 citext 会被 text 比较绕过
         Long emailCount = sysUserMapper.selectCount(
                 new LambdaQueryWrapper<SysUser>()
                         .eq(SysUser::getEmail, request.getEmail()));
@@ -92,13 +84,13 @@ public class AuthServiceImpl implements AuthService {
     public AuthResult login(LoginRequest request, String userAgent, String clientIp) {
         SysUser user = findByIdentifier(request.getIdentifier());
 
-        // ① 账号不存在 与 ② 密码不匹配 → 同一个错误码，不给攻击者提供"账号是否存在"的信息
+        // 账号不存在 与 密码不匹配 用同一个错误码，不泄露"该账号是否已注册"
         if (user == null) {
             log.warn("登录失败（账号不存在）: identifier={} ip={}", request.getIdentifier(), clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
-        // 第三方登录注册的账号没有密码 —— 必须明确告知，否则用户会一直以为自己密码打错了
+        // 第三方登录注册的账号没有密码 —— 必须明确告知，否则用户会以为自己密码打错了
         if (user.getPassword() == null) {
             log.info("密码登录被拒（该账号仅支持第三方登录）: userId={}", user.getId());
             throw new BusinessException(ErrorCode.OAUTH_ACCOUNT_ONLY);
@@ -156,13 +148,9 @@ public class AuthServiceImpl implements AuthService {
     // ------------------------------------------------------------------
 
     /**
-     * 按"用户名或邮箱"查用户。
+     * 按"用户名或邮箱"查用户。两个字段都是 CITEXT 唯一索引，大小写不敏感。
      *
-     * <p>两个字段都是唯一索引且都是 CITEXT，所以大小写不敏感。
-     *
-     * <p>为什么不会查出两条：用户名的可用字符是 {@code [a-zA-Z0-9_-]}（注册时校验），
-     * <b>不含 {@code @}</b>，而邮箱必然含 {@code @} —— 二者取值集合不相交，
-     * 因此不存在"A 的用户名等于 B 的邮箱"的情况。
+     * <p>不会查出两条：用户名字符集 {@code [a-zA-Z0-9_-]} 不含 {@code @}，邮箱必然含 {@code @}。
      */
     private SysUser findByIdentifier(String identifier) {
         return sysUserMapper.selectOne(

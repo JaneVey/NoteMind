@@ -15,14 +15,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Spring Security 配置（无状态 JWT）。
  *
- * <p><b>变更记录（2026-10-07）</b>：
- * <ol>
- *   <li>补上 {@code authenticationEntryPoint} —— 此前未配置，
- *       未认证请求会返回 <b>403</b> 而非 401，前端无法区分"未登录"与"无权限"；</li>
- *   <li>补上 {@code accessDeniedHandler}，与 401 区分；</li>
- *   <li>启用 {@code cors()}，让 CORS 交由 Security 统一处理（原先独立的 CorsFilter
- *       与 Security 过滤器链相互独立，预检请求可能被 Security 拦下）。</li>
- * </ol>
+ * <p>必须显式配置 authenticationEntryPoint，否则未认证请求返回 403 而非 401，
+ * 前端无法区分"未登录"与"无权限"。
  */
 @Configuration
 @EnableWebSecurity

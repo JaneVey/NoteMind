@@ -3,21 +3,14 @@ import { ref } from 'vue'
 /**
  * 全局认证弹框的状态。
  *
- * <h3>为什么用「模块级 ref」而不是 Pinia</h3>
+ * <p>弹框显隐是界面状态，不是领域状态，所以用模块级 ref 而不是 Pinia ——
+ * 模块级 ref 天然是全局单例，任何组件 import 后拿到的都是同一份。
  *
- * 弹框显隐是**界面状态**，不是领域状态 —— 按《前端开发规范》，
- * 这类状态不该进 Pinia。而模块级的 `ref` 天然是全局单例，
- * 任何组件 import 后拿到的都是同一份，正好满足需求。
- *
- * <h3>为什么需要 Promise 语义</h3>
- *
- * 这是「游客模式」体验的核心。调用方要能这样写：
+ * <p>open() 返回 Promise，调用方才能"等登录完成再继续"：
  * <pre>
  *   if (!(await requireAuth({ reason: '发送消息' }))) return
  *   await chat.send(inputText)      // 登录成功后自动续做
  * </pre>
- * 即"等用户登录完成再继续"。所以 {@link open} 返回 Promise，
- * 弹框关闭时（无论成功还是取消）兑现它。
  */
 
 export type AuthTab = 'login' | 'register'
@@ -34,8 +27,8 @@ const reason = ref('')
 /**
  * 等待弹框结果的调用方。
  *
- * <p>用数组而不是单个变量：可能同时有多个动作在等待
- * （例如用户点了两个需要登录的按钮），它们都应得到结果。
+ * <p>用数组而不是单个变量：可能同时有多个动作在等待（例如点了两个需要登录的按钮），
+ * 它们都应得到结果。
  */
 let resolvers: Array<(ok: boolean) => void> = []
 

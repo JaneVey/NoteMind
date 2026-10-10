@@ -6,22 +6,15 @@ import LoginForm from './LoginForm.vue'
 import RegisterForm from './RegisterForm.vue'
 
 /**
- * 认证弹框 —— **登录的主路径**。
+ * 认证弹框 —— 登录的主路径。
  *
- * <h3>为什么必须是弹框而不是页面跳转</h3>
+ * <p>做成弹框而不是跳页面，是为了不丢用户已经输入的内容：跳登录页会让刚写的 200 字消失，
+ * 弹框则能在登录成功后自动把那条消息发出去。
  *
- * 这是「游客模式」体验的分水岭。假设用户打了 200 字的需求后点发送：
- * <pre>
- *   ❌ 跳登录页：200 字丢失，登录回来还要重打   → 用户直接走人
- *   ✅ 弹框：输入内容原样还在 → 登录成功 → 自动把那条消息发出去
- * </pre>
+ * <p>状态由 useAuthDialog 的模块级状态驱动（全局唯一）；关闭时 settle 兑现调用方的 Promise，
+ * 让 requireAuth 之后的代码得以继续执行。
  *
- * <p>弹框由 {@code useAuthDialog} 的模块级状态驱动，全局唯一。
- * 关闭时通过 {@link useAuthDialog} 的 settle 兑现调用方的 Promise，
- * 让 {@code requireAuth} 之后的代码得以继续执行。
- *
- * <p>用 Radix 的 Dialog 而不是手写遮罩：焦点陷阱、Esc 关闭、
- * 屏幕阅读器标注都是白送的，手写很难做对。
+ * <p>用 Radix 的 Dialog 而不是手写遮罩：焦点陷阱、Esc 关闭、屏幕阅读器标注都是现成的。
  */
 
 const { visible, tab, reason, settle, switchTab } = useAuthDialog()

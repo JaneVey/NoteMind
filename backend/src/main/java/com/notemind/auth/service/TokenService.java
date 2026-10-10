@@ -6,12 +6,9 @@ import com.notemind.auth.token.RefreshSession;
 import java.time.Duration;
 
 /**
- * 凭据签发服务：负责 Access Token 与 Refresh Token 的完整生命周期。
+ * 凭据签发服务：Access Token 与 Refresh Token 的生命周期。
  *
- * <p><b>职责边界</b>：本服务只做"凭据机制"，不碰 HTTP
- * （不接收 {@code HttpServletRequest}、不写 Cookie）。
- * Cookie 的读写在 Controller 层完成 —— 这是《后端开发规范》要求的
- * "Service 层禁止出现 Web 概念"，也让本服务可以脱离 Web 上下文单测。
+ * <p>不碰 HTTP（不接收 {@code HttpServletRequest}、不写 Cookie），Cookie 的读写在 Controller。
  */
 public interface TokenService {
 
@@ -27,13 +24,12 @@ public interface TokenService {
     IssuedTokens issue(Long userId, String username, boolean rememberMe, String userAgent, String clientIp);
 
     /**
-     * 校验并<b>消费</b>一个 refresh token，返回其会话上下文。
+     * 校验并消费一个 refresh token，返回其会话上下文。
      *
-     * <p>这个方法会<b>作废旧 token</b>（标记为已用并删除），实现<b>轮换</b>。
+     * <p>本方法会作废旧 token（标记为已用并删除），即轮换。
      * 调用方拿到 {@link RefreshSession} 后应再调 {@link #issue} 签发新的一对凭据。
      *
-     * <p><b>重用检测</b>：如果传入的 token 曾经被轮换过（说明可能存在凭据盗用），
-     * 会吊销该用户<b>全部</b>会话并抛出异常，强制其重新登录。
+     * <p>若传入的 token 曾经被轮换过（可能存在凭据盗用），会吊销该用户全部会话再抛异常。
      *
      * @throws com.notemind.common.exception.BusinessException token 无效、过期或检测到重用
      */

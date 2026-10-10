@@ -14,20 +14,10 @@ import java.time.Duration;
 /**
  * Refresh Token 的 Cookie 读写。
  *
- * <p><b>为什么单独一个类</b>：让 Service 层完全不碰 HTTP
- * （见《后端开发规范》"Service 层禁止出现 Web 概念"）。
- * Service 只产出 token 字符串，由 Controller 调本类写 Cookie。
+ * <p>Cookie 必须是 HttpOnly（JS 读不到）且 Path 限定为 {@code /api/auth}，
+ * 否则每个业务请求都会白白带上长期凭据。
  *
- * <h3>Cookie 属性（每一项都有理由）</h3>
- * <ul>
- *   <li><b>HttpOnly</b> —— JavaScript 读不到。这是整个双 Token 方案的安全基石：
- *       即使发生 XSS，攻击者也拿不到长期凭据</li>
- *   <li><b>Secure</b> —— 只在 HTTPS 下发送（生产必须开，开发走 localhost 时关闭）</li>
- *   <li><b>SameSite=Lax</b> —— 跨站 POST 不会携带它，因此 CSRF 被挡住。
- *       这是本方案<b>不需要额外 CSRF token</b> 的依据</li>
- *   <li><b>Path=/api/auth</b> —— 只有认证相关请求才携带它。
- *       若设为 {@code /}，每个业务请求都会白白带上长期凭据，暴露面大得多</li>
- * </ul>
+ * <p>SameSite=Lax 是本方案不做额外 CSRF token 的依据，被降级为 None 时该结论不成立。
  */
 @Component
 @RequiredArgsConstructor

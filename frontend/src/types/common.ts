@@ -1,22 +1,18 @@
 /**
  * 通用类型。
  *
- * <p>约定：后端所有接口返回统一响应壳 {@link ApiResponse}，由 axios 拦截器拆壳后
- * 业务代码只拿到 `data`。
+ * <p>后端所有接口返回统一响应壳 {@link ApiResponse}，由 axios 拦截器拆壳后只拿到 `data`。
  */
 
 /** 主键。后端为 BIGINT（Java Long），但 JSON 里可能以字符串传输以避免精度丢失 */
 export type Id = string | number
 
 /**
- * 时间字符串。
+ * 时间字符串，一律是 ISO-8601 带时区偏移，如 `2026-10-08T22:05:20+08:00`。
  *
- * <p><b>一律是 ISO-8601 带时区偏移</b>，如 `2026-10-08T22:05:20+08:00`。
- * 因为后端响应**移除了** `@JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")` ——
- * 该格式不含时区偏移，`new Date()` 会按浏览器本地时区解析，跨时区必然错。
- *
- * <p>要展示成 `2026-10-08 22:05` 请用 `@/utils/format` 里的格式化函数，
- * **不要改接口的返回格式**。
+ * <p>后端响应移除了 `@JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")` —— 该格式不含时区偏移，
+ * `new Date()` 会按浏览器本地时区解析，跨时区必然错。要展示成 `2026-10-08 22:05`
+ * 请用 `@/utils/format` 里的格式化函数，不要改接口的返回格式。
  */
 export type IsoDateTime = string
 

@@ -31,25 +31,12 @@ export interface ChatStreamOptions {
 }
 
 /**
- * 发起流式对话。
+ * 发起流式对话。解析的是 SSE，但按「空行切事件块」处理 ——
+ * 一条消息可能被拆到多个网络分片，按行读完再解析会丢掉半行数据。
  *
- * <h3>为什么用 fetch + ReadableStream 而不是 EventSource</h3>
- * `EventSource` 只支持 GET，且**无法携带 `Authorization` 头**。
- * 本项目使用 JWT 鉴权、请求体为 JSON，因此必须用 fetch 手动读取响应流。
- * 这一点原实现是对的，此处保留该方式并补全解析。
+ * <p>用 fetch + ReadableStream 而不是 EventSource：后者只支持 GET，也无法携带 Authorization 头。
  *
- * <h3>本次修正的三处缺陷</h3>
- * 原实现按 `\n` 切分、只识别以 `data: ` 开头的行：
- * <ol>
- *   <li><b>未按 SSE 规范以空行切分事件块</b> —— 一条消息被拆到多个网络分片时，
- *       半行数据会被当成完整数据解析，导致解析失败或内容丢失；</li>
- *   <li><b>未处理多行 data</b> —— 规范允许同一事件有多条 `data:` 行，需按换行拼接；</li>
- *   <li><b>无法区分思考过程与正文</b> —— 两者混在一起渲染。</li>
- * </ol>
- *
- * <h3>关于 `[DONE]`</h3>
- * 后端当前发送的是 `{"type":"done"}` 事件；此处同时兼容 OpenAI 风格的裸
- * `data: [DONE]`，便于将来切换到其他兼容服务时无需改动前端。
+ * <p>结束判定兼容后端 `{"type":"done"}` 与 OpenAI 风格的裸 `data: [DONE]`。
  */
 export function streamChat(
   url: string,
@@ -73,12 +60,9 @@ export function streamChat(
   }
 
   /**
-   * 发起请求，并在 access token 过期时**自动刷新一次后重放**。
+   * 发起请求，access token 过期时自动刷新一次后重放。
    *
-   * <p>为什么流式请求也要做这件事：access token 只有 30 分钟。
-   * 如果用户刚好在第 31 分钟点了发送，而 sse 这条链路不做刷新，
-   * 就会看到"登录已过期"——尽管 refresh token 完好、只需静默换一个。
-   * axios 那条链路（api/request.ts）已经有同样的逻辑，两条链路行为必须一致。
+   * <p>axios 那条链路（api/request.ts）已有一致的逻辑，两条链路的行为必须一致。
    *
    * @param allowRetry 只允许重放一次，避免新 token 仍被拒时无限递归
    */
@@ -100,18 +84,17 @@ export function streamChat(
       if (auth) {
         return doFetch(auth.accessToken, false)
       }
-      // refresh token 也失效了：会话真的结束，通知状态失效
+      // refresh token 也失效了：会话真的结束
       notifySessionExpired()
     }
     return response
   }
 
-  // ★ 从内存读 token，不读 localStorage —— access token 从不落盘
+  // 从内存读 token，不读 localStorage —— access token 从不落盘
   doFetch(getAccessToken(), true)
     .then(async (response) => {
       if (!response.ok) {
-        // 走到这里的 401 说明：doFetch 已经尝试过刷新并重放，仍然失败
-        // —— refresh token 也失效了（过期 / 被吊销 / 检测到重用导致全量登出）
+        // 走到这里的 401：doFetch 已刷新并重放过，仍然失败
         if (response.status === 401) {
           fail('登录已过期，请重新登录')
           return
@@ -168,6 +151,7 @@ export function streamChat(
         }
         if (dataLines.length === 0) return
 
+        // 规范允许同一事件有多条 data 行，按换行拼接
         const data = dataLines.join('\n')
         if (data === '[DONE]') {
           finish()

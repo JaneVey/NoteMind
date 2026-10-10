@@ -18,24 +18,11 @@ import java.util.Set;
 /**
  * Refresh Token 的 Redis 存储。
  *
- * <p><b>为什么放 Redis 而不是建表</b>：TTL 天然契合"到期即失效"，
- * 而"查看登录设备"通过 {@code refresh:user:{userId}} 这个集合实现，无需扫全库。
+ * <p>键设计：{@code refresh:{sha256}} 存会话 HASH，{@code refresh:user:{userId}} 是该用户的
+ * tokenHash 集合（用于列出设备与强制下线），{@code refresh:used:{sha256}} 存已轮换 token 的 owner。
  *
- * <h3>键设计</h3>
- * <pre>
- *   refresh:{sha256}       → HASH { userId, rememberMe, userAgent, clientIp }  TTL 7 天 / 30 天
- *   refresh:user:{userId}  → SET(该用户的全部 tokenHash)                        用于列出设备与强制下线
- *   refresh:used:{sha256}  → userId                                            TTL = 原剩余有效期
- * </pre>
- *
- * <h3>两个关键安全设计</h3>
- * <ol>
- *   <li><b>本类接收明文 token，内部做 SHA-256 后再存</b> ——
- *       调用方无法误把原文写进 Redis。与密码同理：Redis 被读走也不能直接使用。</li>
- *   <li><b>{@code refresh:used:} 里存的是 userId 而不是 "1"</b> ——
- *       这样检测到 token 重用时，能立刻知道该吊销<b>谁</b>的全部会话。
- *       如果只存标记，旧 token 已从 {@code refresh:} 删除，就找不到归属了。</li>
- * </ol>
+ * <p>本类接收明文 token，内部统一做 SHA-256 后再存 —— 调用方无法误把原文写进 Redis。
+ * {@code refresh:used:} 里存 userId 而非一个标记，是为了检测到重用时能立刻知道该吊销谁。
  */
 @Slf4j
 @Repository
@@ -72,7 +59,6 @@ public class RefreshTokenStore {
         // 用户维度的索引，用于"列出登录设备"与"全部下线"
         String userKey = KEY_USER + userId;
         redis.opsForSet().add(userKey, hash);
-        // 索引的 TTL 取最长值，保证它不会比其成员先过期
         redis.expire(userKey, ttl);
     }
 
@@ -98,7 +84,7 @@ public class RefreshTokenStore {
     }
 
     /**
-     * 查询该 token 是否<b>曾经被轮换过</b>（即被使用过）。
+     * 查询该 token 是否曾经被轮换过（即被使用过）。
      *
      * @return 命中返回原持有者的 userId（说明发生了重用，调用方应吊销其全部会话）；否则返回 null
      */
@@ -114,12 +100,7 @@ public class RefreshTokenStore {
         }
     }
 
-    /**
-     * 把 token 标记为"已使用"，TTL 取其原本的剩余有效期。
-     *
-     * <p>轮换时调用：旧 token 从 {@code refresh:} 删除，但在 {@code refresh:used:} 留痕，
-     * 以便它被再次使用时能识别出重用。
-     */
+    /** 把 token 标记为"已使用"，TTL 取其原本的剩余有效期 */
     public void markUsed(String rawToken, Long userId) {
         String hash = sha256(rawToken);
         String refreshKey = KEY_REFRESH + hash;

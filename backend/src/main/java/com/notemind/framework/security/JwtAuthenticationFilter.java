@@ -17,15 +17,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * JWT 认证过滤器。
+ * JWT 认证过滤器：校验通过则把 {@link LoginUser} 放进 SecurityContext。
  *
- * <p><b>变更记录（2026-10-07）</b>：此前把裸 {@code Long userId} 作为 principal 放入 SecurityContext，
- * 导致每个 Controller 需要 {@code (Long) authentication.getPrincipal()} 强转，
- * 且 {@link LoginUser} 成为无人使用的死代码。现改为放入完整的 {@link LoginUser}（由 JWT 声明构造）。
- *
- * <p>认证失败时<b>不抛出异常</b>，只是不设置认证信息，
- * 由 {@code RestAuthenticationEntryPoint} 统一返回 401 JSON ——
- * 这样"带无效 Token 访问公开接口"不会被误伤。
+ * <p>认证失败时不抛异常，只是不设置认证信息，由 {@code RestAuthenticationEntryPoint}
+ * 统一返回 401 —— 这样"带无效 Token 访问公开接口"不会被误伤。
  */
 @Slf4j
 @Component

@@ -17,30 +17,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 对话服务（AI 最小纵切验证版本）。
+ * 对话服务（流式）。
  *
- * <p><b>本类的两个关键点</b>
+ * <p>思考内容在 Spring AI 里挂在消息元数据的 {@code reasoningContent} 键上
+ * （{@code OpenAiChatModel} 内部常量），该键为 null 只说明当前模型没输出思考，不是错误。
  *
- * <h3>1. 思考链的读取方式（已通过反编译 Spring AI 2.0.1 字节码确认）</h3>
- * {@code OpenAiChatModel} 内部维护常量
- * {@code REASONING_CONTENT = "reasoningContent"}，并把模型返回的
- * {@code reasoning_content}（DeepSeek 风格）或 {@code reasoning}（OpenAI 风格）
- * 放入 <b>消息元数据</b>。因此读取方式是：
- * <pre>
- *   response.getResult().getOutput().getMetadata().get("reasoningContent")
- * </pre>
- * 若该键为 null，说明当前模型未输出思考过程（例如非推理模型），并非错误。
- *
- * <h3>2. reasoning 分片可能是「累积值」而非「增量」</h3>
- * Spring AI 内部流式处理中存在 {@code accumulatedReasoning} 变量，
- * 意味着每个分片携带的可能是<b>截至当前的完整思考内容</b>，而不是新增部分。
- * 若直接把每片都推给前端，界面会疯狂重复。
- * 本类用 {@link ReasoningDelta} 统一处理两种情况：
- * 若新值以已发出内容为前缀则只取增量，否则视为独立增量。
- * 具体属于哪种，由启动时的 DEBUG 日志与实际观测确定（见开发日志）。
- *
- * <p><b>当前范围</b>：只做流式输出，不做会话持久化、不做 RAG 检索。
- * 后续把 {@code conversationId} / {@code knowledgeBaseId} 接进来即可扩展。
+ * <p>注意 reasoning 分片可能是累积值而非增量，见 {@link ReasoningDelta}。
  */
 @Slf4j
 @Service
@@ -67,21 +49,9 @@ public class ChatService {
     /**
      * 构造请求参数。
      *
-     * <p><b>为什么必须显式传思考参数（实测结论）</b>
-     *
-     * <p>对硅基流动的 {@code deepseek-ai/DeepSeek-V4-Flash} 实测发现：
-     * <ul>
-     *   <li><b>非流式</b>请求：默认就返回 {@code reasoning_content}</li>
-     *   <li><b>流式</b>请求：默认<b>完全不返回</b>思考内容，必须显式传参</li>
-     * </ul>
-     * 实测各参数在流式下的效果：{@code thinking:{type:enabled}} 与
-     * {@code enable_thinking:true} 均有效（分别产生 22 / 82 个思考分片），
-     * 而 {@code include_reasoning:true} 无效。
-     *
-     * <p>另有一个反直觉的现象：{@code reasoning_effort:"high"} 在非流式下
-     * 反而使模型不再输出思考（{@code reasoning_tokens:0}）。
-     * 因此本项目默认不设置 reasoning-effort，而是通过 {@code extraBody}
-     * 传供应商自己文档定义的思考开关。
+     * <p>流式请求默认不返回思考内容，必须显式传思考开关；实测
+     * {@code thinking:{type:enabled}} 与 {@code enable_thinking:true} 有效，{@code include_reasoning} 无效。
+     * 另外 {@code reasoning_effort:"high"} 在非流式下反而会让模型不输出思考，所以默认不设 reasoning-effort。
      */
     private OpenAiChatOptions.Builder buildOptions() {
         OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder();
@@ -158,10 +128,7 @@ public class ChatService {
         return chunks;
     }
 
-    /**
-     * 读取思考内容。优先取消息元数据，其次取 Generation 元数据，便于确认
-     * Spring AI 究竟把该字段挂在哪一层（该结论会记入开发日志）。
-     */
+    /** 读取思考内容。优先取消息元数据，其次取 Generation 元数据 */
     private String readReasoning(AssistantMessage message, Generation generation) {
         Map<String, Object> messageMetadata = message.getMetadata();
         if (messageMetadata != null) {
@@ -182,11 +149,8 @@ public class ChatService {
     /**
      * 思考内容增量计算器。
      *
-     * <p>兼容两种上游行为：
-     * <ul>
-     *   <li><b>累积</b>：每片携带截至当前的完整文本 → 只发出新增的后缀</li>
-     *   <li><b>增量</b>：每片就是新增文本 → 原样发出</li>
-     * </ul>
+     * <p>上游行为不确定，两种都要兼容：新值以已发出内容为前缀时视为累积式，只取后缀；
+     * 否则视为独立增量，原样发出。都把每片直接推送会导致界面疯狂重复。
      */
     static final class ReasoningDelta {
 

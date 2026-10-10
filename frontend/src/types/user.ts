@@ -1,15 +1,9 @@
 import type { Id } from './common'
 
 /**
- * 用户与认证相关类型。
+ * 用户与认证相关类型，对应后端 `com.notemind.user`（VO）与 `com.notemind.auth`（DTO）。
  *
- * <p>与后端 `com.notemind.user`（VO）和 `com.notemind.auth`（DTO）对应。
- *
- * <p><b>变更记录（2026-10-08，认证重设计）</b>：登录响应由
- * `{ token, userId, username, ... }` 平铺结构改为 `AuthResponse{ accessToken, expiresIn, user }`。
- *
- * <p><b>为什么响应体里没有 refreshToken</b>：它在 HttpOnly Cookie 里，
- * JavaScript 根本读不到 —— 这正是双 Token 方案防 XSS 的关键。
+ * <p>响应体里没有 refreshToken —— 它在 HttpOnly Cookie 里，JavaScript 读不到。
  */
 
 /**
@@ -44,7 +38,7 @@ export interface RegisterRequest {
 
 /** 认证成功响应（登录 / 刷新共用） */
 export interface AuthResponse {
-  /** Access Token。前端**只放内存**，绝不进 localStorage */
+  /** Access Token。只放内存，绝不进 localStorage */
   accessToken: string
   /** 有效秒数，用于预判刷新时机 */
   expiresIn: number

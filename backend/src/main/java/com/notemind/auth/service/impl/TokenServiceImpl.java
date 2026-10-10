@@ -20,16 +20,8 @@ import java.util.Base64;
 /**
  * 凭据签发服务实现。
  *
- * <h3>双 Token 的核心约定</h3>
- * <ul>
- *   <li><b>Access Token</b>：JWT，30 分钟，前端只放内存。服务端只验签、不查库</li>
- *   <li><b>Refresh Token</b>：32 字节不透明随机串（<b>不是 JWT</b>），
- *       7/30 天，走 HttpOnly Cookie。服务端必须在 Redis 里查得到才有效
- *       —— 这正是它"可吊销"的原因</li>
- * </ul>
- *
- * <p><b>为什么 Refresh Token 不用 JWT</b>：JWT 是无状态的，服务端不存任何东西，
- * 因此<b>天生无法吊销</b>。而"登出要真正生效"恰恰是本次认证重设计要解决的问题之一。
+ * <p>Access Token 是 JWT，服务端只验签不查库；Refresh Token 是 32 字节不透明随机串
+ * （不是 JWT），必须在 Redis 里查得到才有效 —— 这正是它"可吊销"的原因。
  */
 @Slf4j
 @Service
@@ -103,10 +95,7 @@ public class TokenServiceImpl implements TokenService {
 
     /**
      * 生成不透明随机串。
-     *
-     * <p>用 {@link SecureRandom} 而非 {@code Math.random()} ——
-     * 后者是可预测的伪随机，用于凭据等于把账号送人。
-     * Base64 URL 编码（无填充）是为了它能安全地放进 Cookie。
+     * 用 {@link SecureRandom} 而非 {@code Math.random()} —— 后者可预测，不能用于凭据。
      */
     private String generateOpaqueToken() {
         byte[] bytes = new byte[REFRESH_TOKEN_BYTES];

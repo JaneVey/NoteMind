@@ -6,24 +6,18 @@ import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/authStore'
 
 /**
- * 登录表单。
+ * 登录表单，被认证弹框复用。
  *
- * <p>被两处复用：{@code AuthDialog}（模态框，主路径）与独立页。
- * 两者共用同一套实现，避免"弹框能登录、独立页不能"这类走偏。
+ * <p>用单一输入框收「用户名或邮箱」，不必回忆当初是用哪个注册的。
  *
- * <p>登录用单一输入框收「用户名或邮箱」—— 市面常见做法（GitHub、Notion 都支持），
- * 用户不必回忆"我当初是用哪个注册的"。
- *
- * <h3>为什么按钮不做禁用式校验</h3>
- * 见 {@code RegisterForm} 的说明：禁用按钮 + 无提示 = 用户不知道自己卡在哪。
- * 这里同样改为**按钮常可点击 + 逐字段错误提示**。
+ * <p>按钮不做禁用式校验，理由同 RegisterForm：禁用按钮 + 没有提示 = 不知道卡在哪。
  */
 
 const props = defineProps<{
   /**
    * 为什么现在需要登录，例如"发送消息需要先登录"。
    *
-   * <p>只有**被动作打断**时才传 —— 那种场景下用户需要一个解释。
+   * <p>只有被动作打断时才传 —— 那种场景下需要一个解释。
    * 从用户菜单主动点"登录"进来的不传，否则会和弹框自身的说明文字重复。
    */
   reason?: string
@@ -77,8 +71,7 @@ async function handleSubmit(): Promise<void> {
     })
     emit('success')
   } catch (error) {
-    // 后端对"账号不存在"与"密码错误"返回同一个错误码，不泄露账号是否存在。
-    // 直接展示后端文案即可，不做额外区分
+    // 后端对"账号不存在"与"密码错误"返回同一个错误码，不泄露账号是否存在，直接展示后端文案
     serverError.value = error instanceof ApiError ? error.message : '登录失败，请稍后重试'
   } finally {
     submitting.value = false
@@ -89,8 +82,8 @@ async function handleSubmit(): Promise<void> {
 <template>
   <form class="space-y-4" novalidate @submit.prevent="handleSubmit">
     <!--
-      只在被动作打断时显示。样式做成"提示条"而不是普通说明文字，
-      让用户一眼看出"是因为我刚才那个操作才需要登录"
+      只在被动作打断时显示。做成提示条而不是普通说明文字，
+      让用户一眼看出"是因为刚才那个操作才需要登录"
     -->
     <p
       v-if="props.reason"

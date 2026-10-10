@@ -8,23 +8,12 @@ import { useAuthStore } from '@/stores/authStore'
 /**
  * 注册表单。
  *
- * <h3>⚠️ 修复记录（2026-10-08）：原实现让用户"卡死"</h3>
+ * <p>按钮只在提交中禁用，其余时候随时可点：初版绑的是 `:disabled="!canSubmit"`，
+ * 三个字段全通过才可点，而按钮禁用时没有任何提示说明哪一项不合格 —— 填完了按钮还是灰的，
+ * 完全不知道该怎么办。现在改成逐字段显示错误，并在首次提交后转为实时校验。
  *
- * 初版把提交按钮绑定成 `:disabled="!canSubmit"`，而 `canSubmit` 要求三个字段**同时**通过校验。
- * 问题在于：**按钮禁用时没有任何提示说明是哪一项不合格**。
- * 用户填完了用户名/邮箱/密码，按钮却是灰的，完全不知道该怎么办。
- *
- * <p>这是"禁用式校验"的典型缺陷。现改为：
- * <ol>
- *   <li><b>按钮始终可点</b>（只在提交中禁用）—— 用户点下去就能得到明确反馈</li>
- *   <li><b>逐字段显示错误</b>，而不是把三项揉成一句笼统提示</li>
- *   <li>首次提交后改为**实时校验**，改对了错误立刻消失</li>
- * </ol>
- *
- * <h3>关于字段规则</h3>
- * 用户名字符集限制为 ASCII —— 这与后端 `@Pattern` 及数据库无关，
- * 是刻意的产品选择（GitHub 等也如此）。**中文请填在"昵称"里**，昵称不限字符。
- * 校验规则与后端保持一致，避免"前端过了后端拒"。
+ * <p>用户名字符集限制为 ASCII，是刻意的产品选择，与后端 `@Pattern` 一致；
+ * 中文请填在"昵称"里，昵称不限字符。校验规则与后端保持一致，避免"前端过了后端拒"。
  */
 
 const emit = defineEmits<{
@@ -90,7 +79,7 @@ function validateAll(): boolean {
   return !errors.username && !errors.email && !errors.password
 }
 
-// 首次提交之后改为实时校验：用户改一个字符，错误立刻更新或消失
+// 首次提交之后改为实时校验：改一个字符，错误立刻更新或消失
 watch([username, email, password], () => {
   if (attempted.value) {
     validateAll()
@@ -164,7 +153,7 @@ async function handleSubmit(): Promise<void> {
         :class="errors.password ? 'border-destructive' : ''"
       />
       <p v-if="errors.password" class="text-xs text-destructive">{{ errors.password }}</p>
-      <!-- 实时提示：用户不必猜"还差多少" -->
+      <!-- 实时提示：不必猜"还差多少" -->
       <p v-else-if="password.length > 0 && password.length < PASSWORD_MIN" class="text-xs text-muted-foreground">
         还需 {{ PASSWORD_MIN - password.length }} 位
       </p>
@@ -187,7 +176,7 @@ async function handleSubmit(): Promise<void> {
       {{ serverError }}
     </p>
 
-    <!-- 按钮只在提交中禁用：其余时候用户随时可以点，点了就会看到具体哪里不合格 -->
+    <!-- 按钮只在提交中禁用：点了就会看到具体哪里不合格 -->
     <Button type="submit" class="w-full" :disabled="submitting">
       <Loader2 v-if="submitting" class="mr-2 h-4 w-4 animate-spin" />
       {{ submitting ? '注册中…' : '注册' }}

@@ -5,12 +5,8 @@ import lombok.Data;
 /**
  * 当前登录用户的对外信息。
  *
- * <p><b>注意</b>：本类是"当前登录者"的视图，与 {@code SysUser} 实体刻意区分开 ——
- * 实体含 {@code password}，**绝不能直接返回给前端**（见《后端开发规范》领域模型边界）。
- *
- * <p>字段名用 {@code userId} 而非 {@code id}，因为它在语义上是"我的 id"。
- *
- * <p><b>变更记录（2026-10-08）</b>：新增 {@code emailVerified}。
+ * <p>与 {@code SysUser} 实体刻意分开：实体含 {@code password}，不能直接返回给前端。
+ * 字段名用 {@code userId} 而非 {@code id}，因为语义上是"我的 id"。
  */
 @Data
 public class UserProfileVO {
