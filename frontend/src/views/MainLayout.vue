@@ -264,13 +264,17 @@ const avatarText = computed(() => {
 /**
  * 打开登录弹框。
  *
- * <p>游客模式下入口是多处的（用户菜单、账户面板），
- * 统一走 {@code useAuthDialog}，保证全局只有一个弹框实例。
+ * <p>游客模式下入口有多处（用户菜单、账户面板），统一走 {@code useAuthDialog}，
+ * 保证全局只有一个弹框实例。
+ *
+ * <p><b>刻意不传 reason</b>：这是用户主动点"登录"，不是被某个动作打断，
+ * 弹框自身的说明文字已经足够。传了反而会出现两段意思相近的话。
+ * {@code reason} 只在该动作被登录拦住时才有意义（例如"发送消息需要先登录"）。
  */
 function openLogin(): void {
   showUserMenu.value = false
   showOptionsPanel.value = false
-  void authDialog.open({ reason: '登录后可以保存笔记、使用知识库与 AI 助手' })
+  void authDialog.open()
 }
 
 function isActive(path: string) {

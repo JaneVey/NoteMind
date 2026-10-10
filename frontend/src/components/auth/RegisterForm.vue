@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import { Button, Input } from '@/components/ui'
 import { ApiError } from '@/api/request'
@@ -8,12 +8,23 @@ import { useAuthStore } from '@/stores/authStore'
 /**
  * 注册表单。
  *
- * <p><b>邮箱必填</b>：它是账号找回的唯一途径。没有邮箱的账号一旦忘记密码就只能作废。
- * 但**不强制邮箱验证** —— 未验证的账号先可用，界面引导验证
- * （GitHub、Notion 都是这个策略，避免注册门槛过高）。
+ * <h3>⚠️ 修复记录（2026-10-08）：原实现让用户"卡死"</h3>
  *
- * <p>注册成功后**不自动登录**，而是切回登录标签并预填用户名 ——
- * 让用户清楚地知道"注册成功了，现在请登录"，而不是被莫名地跳来跳去。
+ * 初版把提交按钮绑定成 `:disabled="!canSubmit"`，而 `canSubmit` 要求三个字段**同时**通过校验。
+ * 问题在于：**按钮禁用时没有任何提示说明是哪一项不合格**。
+ * 用户填完了用户名/邮箱/密码，按钮却是灰的，完全不知道该怎么办。
+ *
+ * <p>这是"禁用式校验"的典型缺陷。现改为：
+ * <ol>
+ *   <li><b>按钮始终可点</b>（只在提交中禁用）—— 用户点下去就能得到明确反馈</li>
+ *   <li><b>逐字段显示错误</b>，而不是把三项揉成一句笼统提示</li>
+ *   <li>首次提交后改为**实时校验**，改对了错误立刻消失</li>
+ * </ol>
+ *
+ * <h3>关于字段规则</h3>
+ * 用户名字符集限制为 ASCII —— 这与后端 `@Pattern` 及数据库无关，
+ * 是刻意的产品选择（GitHub 等也如此）。**中文请填在"昵称"里**，昵称不限字符。
+ * 校验规则与后端保持一致，避免"前端过了后端拒"。
  */
 
 const emit = defineEmits<{
@@ -27,31 +38,70 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const nickname = ref('')
+
 const submitting = ref(false)
-const errorMessage = ref('')
+const serverError = ref('')
+/** 是否已经尝试过提交。首次提交前不打扰用户，提交后再实时校验 */
+const attempted = ref(false)
 
-/** 前端先做基本校验，减少无意义的请求；真正的判定仍在后端 */
-const usernameValid = computed(() => /^[a-zA-Z0-9_-]{3,50}$/.test(username.value))
-const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value))
-const passwordValid = computed(() => password.value.length >= 8 && password.value.length <= 100)
+const errors = reactive({ username: '', email: '', password: '' })
 
-const canSubmit = computed(
-  () => usernameValid.value && emailValid.value && passwordValid.value && !submitting.value,
-)
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PASSWORD_MIN = 8
+const PASSWORD_MAX = 100
+
+function validateAll(): boolean {
+  // 用户名
+  const name = username.value.trim()
+  if (!name) {
+    errors.username = '请输入用户名'
+  } else if (name.length < 3 || name.length > 50) {
+    errors.username = `用户名长度需为 3-50 个字符（当前 ${name.length} 个）`
+  } else if (!USERNAME_PATTERN.test(name)) {
+    errors.username = '用户名只能包含字母、数字、下划线和连字符；中文请填在"昵称"里'
+  } else {
+    errors.username = ''
+  }
+
+  // 邮箱
+  const mail = email.value.trim()
+  if (!mail) {
+    errors.email = '请输入邮箱'
+  } else if (!EMAIL_PATTERN.test(mail)) {
+    errors.email = '邮箱格式不正确，例如 name@example.com'
+  } else if (mail.length > 255) {
+    errors.email = '邮箱长度不能超过 255 个字符'
+  } else {
+    errors.email = ''
+  }
+
+  // 密码
+  if (!password.value) {
+    errors.password = '请输入密码'
+  } else if (password.value.length < PASSWORD_MIN) {
+    errors.password = `密码至少 ${PASSWORD_MIN} 位（当前 ${password.value.length} 位）`
+  } else if (password.value.length > PASSWORD_MAX) {
+    errors.password = `密码不能超过 ${PASSWORD_MAX} 位`
+  } else {
+    errors.password = ''
+  }
+
+  return !errors.username && !errors.email && !errors.password
+}
+
+// 首次提交之后改为实时校验：用户改一个字符，错误立刻更新或消失
+watch([username, email, password], () => {
+  if (attempted.value) {
+    validateAll()
+  }
+})
 
 async function handleSubmit(): Promise<void> {
-  errorMessage.value = ''
+  attempted.value = true
+  serverError.value = ''
 
-  if (!usernameValid.value) {
-    errorMessage.value = '用户名需为 3-50 个字符，只能包含字母、数字、下划线和连字符'
-    return
-  }
-  if (!emailValid.value) {
-    errorMessage.value = '请输入正确的邮箱地址'
-    return
-  }
-  if (!passwordValid.value) {
-    errorMessage.value = '密码长度需为 8-100 个字符'
+  if (!validateAll()) {
     return
   }
 
@@ -65,7 +115,7 @@ async function handleSubmit(): Promise<void> {
     })
     emit('registered', username.value.trim())
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '注册失败，请稍后重试'
+    serverError.value = error instanceof ApiError ? error.message : '注册失败，请稍后重试'
   } finally {
     submitting.value = false
   }
@@ -73,7 +123,7 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <form class="space-y-4" @submit.prevent="handleSubmit">
+  <form class="space-y-4" novalidate @submit.prevent="handleSubmit">
     <div class="space-y-1.5">
       <label for="reg-username" class="text-sm font-medium">用户名</label>
       <Input
@@ -83,7 +133,9 @@ async function handleSubmit(): Promise<void> {
         autocomplete="username"
         placeholder="3-50 位字母、数字、下划线或连字符"
         :disabled="submitting"
+        :class="errors.username ? 'border-destructive' : ''"
       />
+      <p v-if="errors.username" class="text-xs text-destructive">{{ errors.username }}</p>
     </div>
 
     <div class="space-y-1.5">
@@ -95,7 +147,9 @@ async function handleSubmit(): Promise<void> {
         autocomplete="email"
         placeholder="用于找回密码"
         :disabled="submitting"
+        :class="errors.email ? 'border-destructive' : ''"
       />
+      <p v-if="errors.email" class="text-xs text-destructive">{{ errors.email }}</p>
     </div>
 
     <div class="space-y-1.5">
@@ -105,14 +159,20 @@ async function handleSubmit(): Promise<void> {
         v-model="password"
         type="password"
         autocomplete="new-password"
-        placeholder="至少 8 位"
+        :placeholder="`至少 ${PASSWORD_MIN} 位`"
         :disabled="submitting"
+        :class="errors.password ? 'border-destructive' : ''"
       />
+      <p v-if="errors.password" class="text-xs text-destructive">{{ errors.password }}</p>
+      <!-- 实时提示：用户不必猜"还差多少" -->
+      <p v-else-if="password.length > 0 && password.length < PASSWORD_MIN" class="text-xs text-muted-foreground">
+        还需 {{ PASSWORD_MIN - password.length }} 位
+      </p>
     </div>
 
     <div class="space-y-1.5">
       <label for="reg-nickname" class="text-sm font-medium">
-        昵称 <span class="font-normal text-muted-foreground">（可选）</span>
+        昵称 <span class="font-normal text-muted-foreground">（可选，可用中文）</span>
       </label>
       <Input
         id="reg-nickname"
@@ -123,11 +183,12 @@ async function handleSubmit(): Promise<void> {
       />
     </div>
 
-    <p v-if="errorMessage" class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-      {{ errorMessage }}
+    <p v-if="serverError" class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      {{ serverError }}
     </p>
 
-    <Button type="submit" class="w-full" :disabled="!canSubmit">
+    <!-- 按钮只在提交中禁用：其余时候用户随时可以点，点了就会看到具体哪里不合格 -->
+    <Button type="submit" class="w-full" :disabled="submitting">
       <Loader2 v-if="submitting" class="mr-2 h-4 w-4 animate-spin" />
       {{ submitting ? '注册中…' : '注册' }}
     </Button>
