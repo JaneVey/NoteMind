@@ -85,8 +85,12 @@ public class UserServiceImpl implements UserService {
         UserProfileVO vo = new UserProfileVO();
         vo.setUserId(user.getId());
         vo.setUsername(user.getUsername());
-        vo.setNickname(user.getNickname());
         vo.setEmail(user.getEmail());
+        // 变更记录（2026-10-08）：UserProfileVO 新增 emailVerified 后，
+        // 这里漏了赋值 —— 接口返回 null，前端无法判断是否已验证。
+        // 是端到端测试发现的（字段加了但转换处没跟上）。
+        vo.setEmailVerified(user.getEmailVerified());
+        vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
         return vo;
     }

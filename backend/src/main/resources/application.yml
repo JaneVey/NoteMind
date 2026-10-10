@@ -113,7 +113,15 @@ minio:
 # ============================================================
 jwt:
   secret: ${JWT_SECRET:notemind-LOCAL-DEV-ONLY-secret-change-me-in-production-must-be-long-enough}
-  expiration: 86400000
+  # Access Token 有效期：30 分钟（1800000 毫秒）
+  #
+  # ★ 这是双 Token 方案的核心：access token 短命，即使被 XSS 窃取，可用窗口也很小。
+  #   长期凭据交给 Refresh Token（HttpOnly Cookie，JavaScript 读不到）。
+  #   旧实现是单个 24 小时 token，一旦泄露等于账号送人。
+  expiration: ${JWT_EXPIRATION:1800000}
+  # 密钥 ID，写入 JWT 头部（kid）。作用是支持【无损密钥轮换】——
+  # 服务端可同时持有新旧两把密钥，靠 kid 选择验签密钥，用户无需重新登录。
+  key-id: ${JWT_KEY_ID:notemind-1}
 
 # ============================================================
 # 应用级配置
@@ -123,6 +131,27 @@ app:
   # 生产环境必须改为真实域名，禁止使用 *
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+  # ------------------------------------------------------------
+  # 认证（双 Token）
+  # 设计详见《文档/03-系统设计/用户系统设计.md》第四节
+  # ------------------------------------------------------------
+  auth:
+    refresh-token:
+      cookie-name: ${AUTH_REFRESH_COOKIE_NAME:notemind_rt}
+      # 限定路径：只有 /api/auth/* 的请求才会携带 refresh token，
+      # 其它业务请求根本不会带上这个长期凭据 —— 暴露面小得多
+      cookie-path: ${AUTH_REFRESH_COOKIE_PATH:/api/auth}
+      # ⚠️ 生产环境必须为 true（只在 HTTPS 下发送）。
+      #    开发走 http://localhost，Chrome 虽把 localhost 当安全上下文，
+      #    但为避免不同浏览器行为差异，开发期默认关闭。
+      cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+      # SameSite=Lax 是本方案不需要额外 CSRF token 的依据：
+      # 跨站 POST 不会携带它。禁止降级为 None
+      cookie-same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Lax}
+      # 默认 7 天；勾选"记住我"后 30 天
+      ttl-days: ${AUTH_REFRESH_TTL_DAYS:7}
+      remember-me-ttl-days: ${AUTH_REFRESH_REMEMBER_ME_TTL_DAYS:30}
 
   ai:
     # ------------------------------------------------------------

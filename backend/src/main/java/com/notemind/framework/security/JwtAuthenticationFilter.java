@@ -1,6 +1,5 @@
 package com.notemind.framework.security;
 
-import com.notemind.auth.util.JwtUtils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
