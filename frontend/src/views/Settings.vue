@@ -652,9 +652,10 @@ const systemConfig = reactive({
 })
 
 const userInfo = reactive({
-  username: authStore.userInfo?.username || 'notemind_user',
-  nickname: authStore.userInfo?.nickname || 'NoteMind 用户',
-  email: 'user@example.com',
+  username: authStore.user?.username || '未登录',
+  nickname: authStore.user?.nickname || '未登录',
+  // 原先写死 'user@example.com'，是原型占位。现在用真实值，游客留空
+  email: authStore.user?.email || '',
 })
 
 function saveSystemConfig() {

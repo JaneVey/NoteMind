@@ -1,4 +1,5 @@
-import { redirectToLogin, TOKEN_KEY } from '@/api/request'
+import { getAccessToken, notifySessionExpired } from '@/utils/authToken'
+import { refreshAccessToken } from '@/api/authRefresh'
 
 /**
  * 服务端流式事件类型。
@@ -71,25 +72,47 @@ export function streamChat(
     handlers.onError?.(message)
   }
 
-  const token = localStorage.getItem(TOKEN_KEY)
+  /**
+   * 发起请求，并在 access token 过期时**自动刷新一次后重放**。
+   *
+   * <p>为什么流式请求也要做这件事：access token 只有 30 分钟。
+   * 如果用户刚好在第 31 分钟点了发送，而 sse 这条链路不做刷新，
+   * 就会看到"登录已过期"——尽管 refresh token 完好、只需静默换一个。
+   * axios 那条链路（api/request.ts）已经有同样的逻辑，两条链路行为必须一致。
+   *
+   * @param allowRetry 只允许重放一次，避免新 token 仍被拒时无限递归
+   */
+  const doFetch = async (token: string | null, allowRetry: boolean): Promise<Response> => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: JSON.stringify(body),
+      signal,
+    })
 
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: JSON.stringify(body),
-    signal,
-  })
+    if (response.status === 401 && allowRetry) {
+      const auth = await refreshAccessToken()
+      if (auth) {
+        return doFetch(auth.accessToken, false)
+      }
+      // refresh token 也失效了：会话真的结束，通知状态失效
+      notifySessionExpired()
+    }
+    return response
+  }
+
+  // ★ 从内存读 token，不读 localStorage —— access token 从不落盘
+  doFetch(getAccessToken(), true)
     .then(async (response) => {
       if (!response.ok) {
-        // 401：与 axios 链路（api/request.ts）保持一致 —— 清除本地登录状态并跳登录页。
-        // 否则用户只会看到一句"未登录或登录已过期"，却不知道要去登录。
+        // 走到这里的 401 说明：doFetch 已经尝试过刷新并重放，仍然失败
+        // —— refresh token 也失效了（过期 / 被吊销 / 检测到重用导致全量登出）
         if (response.status === 401) {
-          redirectToLogin()
           fail('登录已过期，请重新登录')
           return
         }

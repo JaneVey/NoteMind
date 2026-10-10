@@ -15,12 +15,22 @@
           class="absolute left-full top-3 z-50 ml-2 w-44 overflow-hidden rounded-lg border border-zinc-100 bg-white text-zinc-700 shadow-lg"
         >
           <div class="border-b border-zinc-100 px-3 py-2 text-xs text-zinc-400">
-            {{ authStore.userInfo?.nickname || authStore.userInfo?.username || '原型用户' }}
+            {{ authStore.displayName || '未登录' }}
           </div>
-          <button class="menu-row" @click="openProfileDialog">修改资料</button>
-          <button class="menu-row" @click="router.push('/settings')">设置</button>
-          <div class="border-t border-zinc-100" />
-          <button class="menu-row text-red-500 hover:bg-red-50" @click="handleLogout">退出登录</button>
+
+          <!-- 已登录：资料 / 设置 / 登出 -->
+          <template v-if="authStore.isLoggedIn">
+            <button class="menu-row" @click="openProfileDialog">修改资料</button>
+            <button class="menu-row" @click="router.push('/settings')">设置</button>
+            <div class="border-t border-zinc-100" />
+            <button class="menu-row text-red-500 hover:bg-red-50" @click="handleLogout">退出登录</button>
+          </template>
+
+          <!-- 游客：不显示"修改资料/退出登录"（它们对游客没有意义），改为引导登录 -->
+          <template v-else>
+            <button class="menu-row font-medium text-zinc-900" @click="openLogin">登录 / 注册</button>
+            <button class="menu-row" @click="router.push('/settings')">设置</button>
+          </template>
         </div>
       </div>
 
@@ -126,11 +136,14 @@
             <div class="flex items-center justify-between">
               <div>
                 <h4 class="text-base font-medium text-zinc-900">你的账户</h4>
-                <p class="mt-0.5 text-sm text-zinc-500">当前登录的账户为 {{ authStore.userInfo?.nickname || 'JanVey' }}。</p>
+                <p class="mt-0.5 text-sm text-zinc-500">
+                  {{ authStore.isLoggedIn ? `当前登录的账户为 ${authStore.displayName}。` : '当前未登录。登录后可以保存笔记、使用知识库与 AI 助手。' }}
+                </p>
               </div>
               <div class="flex gap-2">
-                <Button variant="outline" size="sm">管理</Button>
-                <Button variant="outline" size="sm" class="text-red-500" @click="handleLogout">退出登录</Button>
+                <Button v-if="authStore.isLoggedIn" variant="outline" size="sm">管理</Button>
+                <Button v-else variant="outline" size="sm" @click="openLogin">登录 / 注册</Button>
+                <Button v-if="authStore.isLoggedIn" variant="outline" size="sm" class="text-red-500" @click="handleLogout">退出登录</Button>
               </div>
             </div>
 
@@ -169,7 +182,7 @@
 
         <div class="space-y-2">
           <label class="text-sm font-medium text-zinc-700">用户名</label>
-          <Input :model-value="authStore.userInfo?.username || 'prototype-user'" disabled />
+          <Input :model-value="authStore.user?.username || ''" disabled />
         </div>
       </div>
 
@@ -203,6 +216,7 @@ import {
 } from 'lucide-vue-next'
 import { updateUserProfile } from '@/api/user'
 import { useAuthStore } from '@/stores/authStore'
+import { useAuthDialog } from '@/composables/useAuthDialog'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import DialogContent from '@/components/ui/DialogContent.vue'
@@ -214,6 +228,7 @@ import Input from '@/components/ui/Input.vue'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const authDialog = useAuthDialog()
 
 const showUserMenu = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
@@ -241,9 +256,22 @@ const optionItems = [
 ]
 
 const avatarText = computed(() => {
-  const nick = authStore.userInfo?.nickname || authStore.userInfo?.username
-  return nick ? nick.charAt(0).toUpperCase() : 'J'
+  const nick = authStore.user?.nickname || authStore.user?.username
+  // 游客用产品首字母作为默认头像
+  return nick ? nick.charAt(0).toUpperCase() : 'N'
 })
+
+/**
+ * 打开登录弹框。
+ *
+ * <p>游客模式下入口是多处的（用户菜单、账户面板），
+ * 统一走 {@code useAuthDialog}，保证全局只有一个弹框实例。
+ */
+function openLogin(): void {
+  showUserMenu.value = false
+  showOptionsPanel.value = false
+  void authDialog.open({ reason: '登录后可以保存笔记、使用知识库与 AI 助手' })
+}
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`)
@@ -251,7 +279,7 @@ function isActive(path: string) {
 
 function openProfileDialog() {
   showUserMenu.value = false
-  profileForm.nickname = authStore.userInfo?.nickname || 'JanVey'
+  profileForm.nickname = authStore.user?.nickname || ''
   showProfileDialog.value = true
 }
 
@@ -260,20 +288,24 @@ async function handleSaveProfile() {
   if (!name || saving.value) return
   saving.value = true
   try {
-    if (authStore.getToken()) {
+    if (authStore.isLoggedIn) {
       await updateUserProfile({ nickname: name })
     }
-    authStore.userInfo = { ...(authStore.userInfo || {}), nickname: name }
-    localStorage.setItem('notemind_user', JSON.stringify(authStore.userInfo))
+    // 变更记录：原先这里直接写 localStorage，是页面越界碰存储细节（分层问题）。
+    // 现在交给 store 维护 —— 而且新方案**不再持久化任何用户信息**，
+    // 登录态完全由 HttpOnly Cookie + 启动时静默刷新恢复。
+    authStore.patchUser({ nickname: name })
     showProfileDialog.value = false
   } finally {
     saving.value = false
   }
 }
 
-function handleLogout() {
-  authStore.logout()
-  router.push('/login')
+async function handleLogout() {
+  // 新实现会调用 /auth/logout 让服务端**真正吊销** refresh token，
+  // 而不只是让前端"忘记"它 —— 这是本次认证重设计要解决的核心问题之一
+  await authStore.logout()
+  void router.push('/')
 }
 
 function handleClickOutside(e: MouseEvent) {
@@ -283,7 +315,8 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 onMounted(() => {
-  authStore.initFromStorage()
+  // 变更记录：原先这里调 initFromStorage()，而 main.ts 的启动流程已经恢复过登录态，
+  // 属于重复且位置不当。现在恢复统一由 App.vue → authStore.bootstrap() 负责。
   document.addEventListener('click', handleClickOutside)
 })
 

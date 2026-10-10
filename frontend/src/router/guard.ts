@@ -1,53 +1,28 @@
-import type { NavigationGuardNext, Router, RouteLocationNormalized } from 'vue-router'
-import { TOKEN_KEY } from '@/api/request'
-
-const whiteList = ['/login', '/register']
+import type { Router, RouteLocationNormalized } from 'vue-router'
 
 /**
- * 路由守卫（登录拦截）。
+ * 路由插件：只负责设置页面标题。
  *
- * <p><b>变更记录（2026-10-08）—— 移除开发环境放行</b>
+ * <h3>⚠️ 这里曾经有一层「登录拦截」守卫，已整体移除</h3>
  *
- * <p>此前实现的第二行是：
- * <pre>
- *   if (import.meta.env.DEV) {
- *     next()        // 开发环境直接放行
- *     return
- *   }
- * </pre>
+ * 旧实现是：`beforeEach` 里检查 token，未登录一律跳到登录页。
+ * 那是**后台管理系统**的思路 —— 反正登录了才有活干。
+ * 但 NoteMind 是 C 端产品，市面产品（ChatGPT、Claude、Notion）都是
+ * **先让用户用起来，到需要身份的时候才索取**。
  *
- * <p>这带来一个很隐蔽的问题：<b>页面能进，但接口返回 401</b>。
- * 因为后端 Spring Security 对业务接口一律要求 JWT，
- * 而前端跳过了登录引导，localStorage 里根本没有 Token，
- * 于是用户会看到「未登录或登录已过期」，却完全不知道该先去登录 ——
- * 看起来就像"登录功能没做"。
+ * <p>「需要登录」的判断已经从**进页面**下沉到**做动作**，
+ * 入口是 {@code composables/useAuthGuard.ts} 的 `requireAuth()`。
+ * 这样做的三个好处：
+ * <ol>
+ *   <li>「哪里需要登录」在代码里是显式的，一眼可见，不依赖路由表这种间接映射</li>
+ *   <li>可以做到「登录后自动续做」—— 弹框登录完，原本被打断的动作继续执行</li>
+ *   <li>弹框而非整页跳转，不破坏用户所处的上下文</li>
+ * </ol>
  *
- * <p>同时它也让开发阶段无法验证真实的登录流程。
- * 既然用户系统后端已经完成，就没有理由在开发环境绕过它。
- *
- * <p>另外补充了 {@code redirect} 查询参数：被拦截时记住原目标，
- * 登录成功后回到该页面，而不是一律跳首页。
+ * <p>如果再保留一层全拦守卫，就会与动作层的判断**自相矛盾**：
+ * 守卫会把用户从页面赶走，而动作层的本意是让他继续待着。
  */
-export default function setupGuard(router: Router) {
-  router.beforeEach(
-    (to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
-      // 直接读 localStorage，避免依赖 store 是否已初始化
-      const hasToken = Boolean(localStorage.getItem(TOKEN_KEY))
-      const isWhitelist = whiteList.includes(to.path)
-
-      if (hasToken && isWhitelist) {
-        // 已登录还去登录页 → 回首页
-        next('/')
-        return
-      }
-      if (hasToken || isWhitelist) {
-        next()
-        return
-      }
-      next({ path: '/login', query: { redirect: to.fullPath } })
-    },
-  )
-
+export default function setupRouter(router: Router): void {
   router.afterEach((to: RouteLocationNormalized) => {
     document.title = to.meta?.title ? `${to.meta.title} - NoteMind` : 'NoteMind'
   })

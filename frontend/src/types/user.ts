@@ -3,26 +3,36 @@ import type { Id } from './common'
 /**
  * 用户与认证相关类型。
  *
- * <p>与后端 `com.notemind.user` / `com.notemind.auth` 模块对应。
+ * <p>与后端 `com.notemind.user`（VO）和 `com.notemind.auth`（DTO）对应。
+ *
+ * <p><b>变更记录（2026-10-08，认证重设计）</b>：登录响应由
+ * `{ token, userId, username, ... }` 平铺结构改为 `AuthResponse{ accessToken, expiresIn, user }`。
+ *
+ * <p><b>为什么响应体里没有 refreshToken</b>：它在 HttpOnly Cookie 里，
+ * JavaScript 根本读不到 —— 这正是双 Token 方案防 XSS 的关键。
  */
 
 /**
- * 当前登录用户信息（前端视角，对应后端 `UserProfileVO`）。
+ * 当前登录用户（对应后端 `UserProfileVO`）。
  *
- * <p><b>注意</b>：后端不叫 `UserVO` 而叫 `UserProfileVO`，且主键字段名是 `userId`
- * 而非 `id` —— 因为它描述的是"当前登录者"，与 `SysUser` 实体刻意区分开
- * （实体含 `password`，绝不外传）。
+ * <p>字段名 `userId` 而非 `id`：语义上是"我的 id"。
  */
 export interface UserInfo {
-  userId: Id | null
+  userId: Id
   username: string
-  nickname: string
-  avatar: string
+  email: string
+  /** 邮箱是否已验证。未验证的账号可正常使用，界面引导验证 */
+  emailVerified: boolean
+  nickname: string | null
+  avatar: string | null
 }
 
 export interface LoginRequest {
-  username: string
+  /** 用户名或邮箱 */
+  identifier: string
   password: string
+  /** 记住我：refresh token 有效期由 7 天延长到 30 天 */
+  rememberMe?: boolean
 }
 
 export interface RegisterRequest {
@@ -32,22 +42,16 @@ export interface RegisterRequest {
   nickname: string
 }
 
-/**
- * 登录响应。
- *
- * <p><b>变更记录</b>：此前这里有 `user?: Partial<UserInfo>` 作为兼容分支，
- * 导致 `authStore` 里写满了 `data.userId ?? data.user?.userId ?? null` 这种三重兜底。
- * 后端实际返回的就是扁平结构，已移除该字段。
- */
-export interface LoginResponse {
-  token: string
-  userId: Id
-  username: string
-  nickname: string
-  avatar: string | null
+/** 认证成功响应（登录 / 刷新共用） */
+export interface AuthResponse {
+  /** Access Token。前端**只放内存**，绝不进 localStorage */
+  accessToken: string
+  /** 有效秒数，用于预判刷新时机 */
+  expiresIn: number
+  user: UserInfo
 }
 
-/** 修改个人资料（后端字段均可选，只更新传了的） */
+/** 修改个人资料 */
 export interface UpdateProfileRequest {
   nickname?: string
   avatar?: string
