@@ -46,6 +46,15 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.USERNAME_EXISTS);
         }
 
+        // email 在数据库里是 CITEXT（大小写不敏感唯一），等值比较即可 ——
+        // Admin@x.com 与 admin@x.com 会被正确判定为同一个邮箱，应用层不需要手动 lower()
+        Long emailCount = sysUserMapper.selectCount(
+                new LambdaQueryWrapper<SysUser>()
+                        .eq(SysUser::getEmail, request.getEmail()));
+        if (emailCount > 0) {
+            throw new BusinessException(ErrorCode.EMAIL_EXISTS);
+        }
+
         SysUser user = new SysUser();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -53,6 +62,8 @@ public class AuthServiceImpl implements AuthService {
         user.setNickname(request.getNickname() != null
                 ? request.getNickname()
                 : request.getUsername());
+        // emailVerified / status 由数据库默认值给出（false / 'active'），此处不显式设置，
+        // 避免在 Java 里散落 'active' 这类魔法字符串
         sysUserMapper.insert(user);
 
         // TODO 新用户初始化数据（默认笔记本、预设 Prompt 快捷指令、用户画像、AI 供应商配置）

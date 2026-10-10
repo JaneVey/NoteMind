@@ -27,7 +27,14 @@
 -- ============================================================
 -- 0. 扩展
 -- ============================================================
-CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS vector;   -- 向量检索（pgvector）
+
+-- citext：大小写不敏感文本。
+-- 用于 username 与 email —— 两者在语义上都不区分大小写
+-- （Admin 与 admin 是同一个账号，Foo@x.com 与 foo@x.com 是同一个邮箱）。
+-- 放在数据库层面保证，比在应用层手动 lower() 可靠：
+-- 应用层只要有一处忘了规范化，就会产生重复账号。
+CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ============================================================
 -- 1. sys_user  用户（登录账号）
@@ -35,29 +42,67 @@ CREATE EXTENSION IF NOT EXISTS vector;
 --    说明：本项目没有"注销后保留审计线索"的需求，因此不引入逻辑删除。
 --          逻辑删除会让 username 的唯一索引变复杂（需改为部分索引），
 --          在需求明确之前不引入这层复杂度。
+--
+--    ★ 2026-10-08 认证重设计后的变更：
+--      · username / email 改为 CITEXT（大小写不敏感唯一）
+--      · email 由可空改为 NOT NULL + 唯一 —— 它是账号找回的唯一途径
+--      · password 由 NOT NULL 改为可空 —— OAuth 用户没有密码
+--      · 新增 email_verified / status / last_login_at
 -- ============================================================
 CREATE TABLE sys_user (
-    id          BIGSERIAL    PRIMARY KEY,
-    username    VARCHAR(100) NOT NULL,
-    password    VARCHAR(500) NOT NULL,
-    email       VARCHAR(255),
-    nickname    VARCHAR(100),
-    avatar      VARCHAR(500),
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    id             BIGSERIAL    PRIMARY KEY,
+    username       CITEXT       NOT NULL,
+    password       VARCHAR(500),
+    email          CITEXT       NOT NULL,
+    email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+    nickname       VARCHAR(100),
+    avatar         VARCHAR(500),
+    status         VARCHAR(20)  NOT NULL DEFAULT 'active',
+    last_login_at  TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  sys_user          IS '用户（登录账号）';
-COMMENT ON COLUMN sys_user.password IS 'BCrypt 哈希，禁止明文';
-COMMENT ON COLUMN sys_user.avatar   IS '头像 URL（MinIO 或外部链接）';
+COMMENT ON TABLE  sys_user                IS '用户（登录账号）';
+COMMENT ON COLUMN sys_user.password       IS 'BCrypt 哈希。为 NULL 表示该账号只能通过第三方登录（如 GitHub）';
+COMMENT ON COLUMN sys_user.email          IS '必填，用于账号找回；大小写不敏感唯一';
+COMMENT ON COLUMN sys_user.email_verified IS '邮箱是否已验证。未验证的账号仍可正常使用，界面引导验证';
+COMMENT ON COLUMN sys_user.status         IS '账号状态：active / disabled。用 VARCHAR 而非 PG ENUM，避免改值要写 DDL';
+COMMENT ON COLUMN sys_user.last_login_at  IS '最近登录时间，登录审计用';
+COMMENT ON COLUMN sys_user.avatar         IS '头像 URL（MinIO 或外部链接）';
 
 -- 唯一索引：应用层的注册查重在并发下存在竞态，
 -- 最终一致性由数据库唯一索引兜底
 CREATE UNIQUE INDEX uk_sys_user_username ON sys_user (username);
-CREATE INDEX        idx_sys_user_email    ON sys_user (email);
+CREATE UNIQUE INDEX uk_sys_user_email    ON sys_user (email);
 
 -- ============================================================
--- 2. user_profile  用户画像
+-- 2. sys_user_oauth  第三方账号绑定
+--    删除策略：硬删（解绑即删除记录）
+--    说明：一个用户可以绑定多个第三方平台；一个第三方账号只能绑定一个用户
+-- ============================================================
+CREATE TABLE sys_user_oauth (
+    id                BIGSERIAL    PRIMARY KEY,
+    user_id           BIGINT       NOT NULL REFERENCES sys_user (id),
+    provider          VARCHAR(32)  NOT NULL,
+    provider_user_id  VARCHAR(128) NOT NULL,
+    provider_username VARCHAR(128),
+    avatar_url        VARCHAR(500),
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  sys_user_oauth                   IS '第三方账号绑定（GitHub 等）';
+COMMENT ON COLUMN sys_user_oauth.provider          IS '平台标识：github（预留 google / wechat）';
+COMMENT ON COLUMN sys_user_oauth.provider_user_id  IS '第三方平台的用户唯一 ID —— 绑定关系以它为准，不用邮箱或用户名';
+COMMENT ON COLUMN sys_user_oauth.provider_username IS '第三方平台的用户名/昵称，仅用于展示';
+COMMENT ON COLUMN sys_user_oauth.avatar_url        IS '第三方平台的头像，可在用户未上传头像时作为默认值';
+
+CREATE UNIQUE INDEX uk_sys_user_oauth_provider ON sys_user_oauth (provider, provider_user_id);
+CREATE INDEX        idx_sys_user_oauth_user_id ON sys_user_oauth (user_id);
+
+-- ============================================================
+-- 3. user_profile  用户画像
 --    删除策略：硬删（随用户删除）
 --    说明：一个用户一条记录，内容注入 System Prompt
 -- ============================================================
@@ -79,8 +124,9 @@ COMMENT ON COLUMN user_profile.is_enabled IS '是否注入对话；对应 Java �
 
 CREATE UNIQUE INDEX uk_user_profile_user_id ON user_profile (user_id);
 
+
 -- ============================================================
--- 3. sys_operation_log  操作日志
+-- 4. sys_operation_log  操作日志
 --    删除策略：只追加，不删除（保留期由运维策略决定，本期不做清理）
 --    说明：故意不设 updated_at —— 本表只追加、不修改
 -- ============================================================
@@ -112,7 +158,7 @@ CREATE INDEX idx_sys_operation_log_module     ON sys_operation_log (module);
 CREATE INDEX idx_sys_operation_log_created_at ON sys_operation_log (created_at DESC);
 
 -- ============================================================
--- 4. 业务表（待设计 —— 此处仅登记表名与用途，防止命名再次漂移）
+-- 5. 业务表（待设计 —— 此处仅登记表名与用途，防止命名再次漂移）
 -- ============================================================
 --   笔记模块   note_notebook    笔记本       软删
 --              note_folder      文件夹       软删
@@ -137,16 +183,32 @@ CREATE INDEX idx_sys_operation_log_created_at ON sys_operation_log (created_at D
 --     必须按规范 5.2 节约定的字段名书写
 
 -- ============================================================
--- 5. 种子数据
+-- 6. Redis 中使用的键（不建表，此处登记以便查阅）
+-- ============================================================
+-- Refresh Token 与限流计数都放 Redis，不建表 —— TTL 天然契合"到期即失效"。
+-- 键的完整定义见《03-系统设计/用户系统设计.md》第七节：
+--
+--   refresh:{sha256(token)}       → 会话信息            TTL 7 天 / 30 天（记住我）
+--   refresh:user:{userId}         → SET(该用户全部 tokenHash)   用于列出设备与强制下线
+--   refresh:used:{sha256(token)}  → 重用检测标记        TTL = 原有效期
+--   oauth:state:{state}           → OAuth CSRF 防护     TTL 10 分钟
+--   auth:fail:ip:{ip}             → 登录失败计数        TTL 15 分钟
+--   auth:fail:id:{identifier}     → 登录失败计数        TTL 15 分钟
+--
+-- ★ 安全要点：refresh token 在 Redis 里存的是 sha256 哈希，不是原文 ——
+--   与密码同理，Redis 被读走也不能直接使用。
+
+-- ============================================================
+-- 7. 种子数据
 -- ============================================================
 -- 默认管理员。密码明文：admin123456
 -- ⚠️ 仅开发环境使用，部署到公网前必须修改
 -- 哈希由 bcryptjs 生成，前缀由 $2b$ 规范化为 $2a$
 -- （对 ≤72 字节的密码，bcrypt 2a 与 2b 的验证结果完全一致）
-INSERT INTO sys_user (id, username, password, email, nickname)
+INSERT INTO sys_user (id, username, password, email, email_verified, nickname)
 VALUES (1, 'admin',
         '$2a$10$IieD705/P1uMjDESYZQA0.3xS/N5gUPpJ2nSImezICb86SOkSJBMC',
-        'admin@notemind.local', '管理员')
+        'admin@notemind.local', TRUE, '管理员')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO user_profile (user_id, identity, tech_stack, answer_preference, custom_prompt)

@@ -38,6 +38,13 @@ public enum ErrorCode {
     USER_NOT_FOUND(2003, 400, "用户不存在或已注销"),
     OLD_PASSWORD_WRONG(2004, 400, "旧密码错误"),
     PASSWORD_UNCHANGED(2005, 400, "新密码不能与旧密码相同"),
+    OAUTH_ACCOUNT_ONLY(2006, 400, "该账号使用第三方登录，请用 GitHub 登录"),
+    LOGIN_TOO_FREQUENT(2007, 429, "登录尝试过于频繁，请稍后再试"),
+    EMAIL_EXISTS(2008, 400, "邮箱已被注册"),
+    REFRESH_TOKEN_INVALID(2009, 401, "登录状态已失效，请重新登录"),
+    OAUTH_FAILED(2010, 400, "第三方登录失败，请重试"),
+    OAUTH_ALREADY_BOUND(2011, 400, "该第三方账号已绑定其他用户"),
+    ACCOUNT_DISABLED(2012, 403, "账号已被禁用"),
 
     // ---------- 3xxx 笔记 ----------
     NOTE_NOT_FOUND(3001, 404, "笔记不存在"),

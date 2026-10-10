@@ -20,7 +20,20 @@ spring:
   # application-dev.yml 用 notemind、docker-compose 用 notemind_db，三处不一致）
   # ============================================================
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notemind}
+    # ★ stringtype=unspecified 是**必须的**，不是可选优化 —— 去掉它会产生一个极隐蔽的 bug。
+    #
+    # 原因：sys_user.username 与 email 用的是 CITEXT（大小写不敏感类型）。
+    # citext 的不敏感特性**只在参数类型被推断为 citext 时才生效**；
+    # 而 JDBC 驱动默认把 String 参数按 varchar 发送，此时 PostgreSQL 会选中
+    # 内置的 text = text 操作符（区分大小写），把 citext 彻底绕过。
+    #
+    # 后果：唯一索引仍然拦住重复（所以数据是安全的），但**应用层查重全部失效** ——
+    # 以为邮箱可用，插入时撞唯一约束，用户看到 500 而不是"邮箱已被注册"。
+    # 这个 bug 极难发现：同样的 SQL 用字面量能命中，用参数就命中 0 条。
+    #
+    # stringtype=unspecified 让驱动把字符串按 unknown 类型发送，
+    # 交由 PostgreSQL 根据列类型推断，citext 才会正常工作。
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notemind}?stringtype=unspecified
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
