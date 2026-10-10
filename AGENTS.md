@@ -63,10 +63,10 @@
 ## 本机环境（开发）
 
 ```powershell
-# 依赖服务（Redis 用容器，不用宿主机那个 3.0）
-docker compose up -d postgres redis minio
-#   PostgreSQL 127.0.0.1:5432   库 notemind
-#   Redis      127.0.0.1:6380   ← 6380！宿主机 6379 被另一个项目占用
+# 依赖服务
+docker compose up -d
+#   PostgreSQL 127.0.0.1:5432   库 notemind（首次启动自动执行 init.sql）
+#   Redis      127.0.0.1:6380   开发机上 6379 常被本地已有的 Redis 占用，故用 6380
 #   MinIO      127.0.0.1:9000   控制台 9001（仅绑本机）
 
 # 后端
@@ -128,7 +128,7 @@ AI 最小纵切（思考链 + SSE 流式，已验证）· 后端按模块重构 
 2. **Git 提交用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)**：
    `feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf` / `style`，描述用中文说清「改了什么、为什么」。
 3. **一次提交只做一件事**，不要把格式化与功能改动混在一起。
-4. **不要提交**：`.env`、`文档/毕设文档/`（含姓名学号）、`文档/视频/`（大文件）—— 均已在 `.gitignore`。
+4. **不要提交**：`.env`、`文档/毕设文档/`、`文档/视频/` —— 均已在 `.gitignore`。
 5. **改动后要验证**：后端 `mvn clean compile` 且**实际启动过**；前端 `npm run typecheck`。
 6. **发现规范不合理就改规范，不要私下破例** —— 改完在本文件与规范索引的修订记录里写明原因。
 7. **纯重构必须独立提交，并建立可对比的基线。**
@@ -155,7 +155,7 @@ AI 最小纵切（思考链 + SSE 流式，已验证）· 后端按模块重构 
 | `mkdir src/{a,b,c}` 在 PowerShell 不展开 | 会产生名字带花括号的空目录，本项目已踩过两次 |
 | Docker 文件共享会瞬时锁文件 | `ReplaceFileW EIO` 报错，重试即可 |
 | Vite 开发代理不关闭 SSE 连接 | 前端**不能只靠"流关闭"判断结束**，必须显式处理 `done` 事件 |
-| 宿主机 Redis 是 3.0（2015 年） | 被另一个项目占用（有 `sys_dict:*` key），**不要停它**，本项目用容器 6380 |
+| Redis 端口用 6380 | 开发机上 6379 常被本地已有的 Redis 占用。本项目用容器内的 redis:7，映射到 6380 避开冲突 |
 | **`citext` 列必须配 `stringtype=unspecified`** | JDBC 默认按 `varchar` 发送 String 参数，PG 会选中 `text = text` 操作符（**区分大小写**），把 citext 彻底绕过 → 应用层查重失效、撞唯一约束报 500。JDBC URL **已带**该参数，不要删 |
 | PowerShell 里 `Where-Object { $_.FullName.Replace("$PWD\","") }` 会让整条命令**静默失败**（exit 1、无输出）| 本项目已踩三次。改用 `-replace` 或分步执行 |
 | **`[System.IO.File]::` 用的是进程工作目录，不是 `Set-Location` 的结果** | 用相对路径会写到**仓库根**；而且 `MethodInvocationException` 是**非终止性**的，循环会带着 `$null` 继续走到 `WriteAllText`，在根目录留下 0 字节垃圾文件。**一律用绝对路径** |

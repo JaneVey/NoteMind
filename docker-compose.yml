@@ -1,7 +1,7 @@
 # ============================================================
 # NoteMind 部署编排
 #
-# 用途：生产 / 答辩演示部署（开发环境 PostgreSQL / Redis / MinIO 可在本地直跑）
+# 用途：生产部署（开发环境 PostgreSQL / Redis / MinIO 可在本地直跑）
 #
 # 安全须知（公网部署前必须处理）：
 #   1. MinIO 的 9001 控制台端口【绝不可】对公网开放，仅在需要时临时映射到 127.0.0.1
@@ -65,9 +65,21 @@ services:
 
   # ------------------------------------------------------------
   # 后端应用（含打包进 jar 的前端静态资源）
-  # 需要先执行：mvn clean package
+  #
+  # ★ profiles: ["prod"] —— 这是刻意的，不是可选项。
+  #
+  #   没有它时，开发者在仓库根目录执行不带服务名的 `docker compose up -d`
+  #   会把本服务一起拉起来，与本地 `mvn spring-boot:run` 抢 8080 端口。
+  #   这个坑在本项目已经记过两次（见开发日志 2026-10-07），
+  #   所以改为在源头避免：默认不启动，要部署时显式指定 profile。
+  #
+  #   部署：docker compose --profile prod up -d --build
+  #   开发：docker compose up -d postgres redis minio
+  #
+  # 构建前需先执行：mvn clean package
   # ------------------------------------------------------------
   app:
+    profiles: ["prod"]
     build:
       context: ./backend
       dockerfile: Dockerfile
