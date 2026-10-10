@@ -146,3 +146,5 @@ AI 最小纵切（思考链 + SSE 流式，已验证）· 后端按模块重构 
 | Docker 文件共享会瞬时锁文件 | `ReplaceFileW EIO` 报错，重试即可 |
 | Vite 开发代理不关闭 SSE 连接 | 前端**不能只靠"流关闭"判断结束**，必须显式处理 `done` 事件 |
 | 宿主机 Redis 是 3.0（2015 年） | 被另一个项目占用（有 `sys_dict:*` key），**不要停它**，本项目用容器 6380 |
+| **`citext` 列必须配 `stringtype=unspecified`** | JDBC 默认按 `varchar` 发送 String 参数，PG 会选中 `text = text` 操作符（**区分大小写**），把 citext 彻底绕过 → 应用层查重失效、撞唯一约束报 500。JDBC URL **已带**该参数，不要删 |
+| PowerShell 里 `Where-Object { $_.FullName.Replace("$PWD\","") }` 会让整条命令**静默失败**（exit 1、无输出）| 本项目已踩三次。改用 `-replace` 或分步执行 |
