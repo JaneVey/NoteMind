@@ -36,6 +36,11 @@
    布尔字段 `is_xxx`，但 **Java 属性名不带 `is`**（用 `@TableField` 映射）。
 9. **`v-if` 禁止与 `v-for` 同元素**（Vue 优先级 A 级规则）；类型定义禁止用 `[key: string]: unknown` 兜底。
 10. **改代码后必须实际运行验证** —— 编译通过 ≠ 能用。本项目已有多个"编译通过但运行时炸"的实例。
+11. **认证凭据的存放规则（双 Token）** —— Access Token **只放内存**（`utils/authToken.ts`），
+    **前端不持久化任何认证数据**；Refresh Token 在 **HttpOnly Cookie** 里，JS 读不到，
+    **不要试图读它、也不要把它写进 localStorage**。登录态靠启动时静默刷新恢复。
+12. **需要登录的动作走 `requireAuth()`** —— 不要用路由守卫拦截页面（游客模式）。
+    见 `composables/useAuthGuard.ts`，并注意「登录后自动续做」的 pending intent 写法。
 
 ---
 
@@ -94,12 +99,17 @@ Redis 连接成功：PING=PONG version=7.4.9
 
 ## 当前状态与下一步
 
-**已完成**：脚手架 · 用户系统 · 技术栈升级（Boot 4 / Spring AI 2）· 基础连接（MinIO/Redis 自检）·
+**已完成**：脚手架 · 技术栈升级（Boot 4 / Spring AI 2）· 基础连接（MinIO/Redis 自检）·
 AI 最小纵切（思考链 + SSE 流式，已验证）· 后端按模块重构 · 开发规范制定 · 公共表重建 ·
-前端目录与类型重构 · 两个大页面拆分（`AIChat.vue` 1563→166、`Notebook.vue` 1209→218）
+前端目录与类型重构 · 两个大页面拆分（`AIChat.vue` 1563→166、`Notebook.vue` 1209→218）·
+**认证重设计阶段 1-3**（数据模型 / 双 Token 后端 / 游客模式 + 弹框前端，均已端到端验证）
 
-**未完成**：业务表设计（笔记/知识库/AI 共 11 张）· 笔记模块 · AI 助手（接入 store + SSE 持久化）·
-知识库 + RAG · `KnowledgeBase.vue`(549) 与 `Settings.vue`(601) 的拆分（仅剩的两个超 400 行文件）
+**未完成**：
+- 认证阶段 4-6：安全加固（启动强校验、防爆破、登录审计、DOMPurify）、GitHub OAuth、
+  认证链路测试（**项目第一个测试**）
+- 业务表设计（笔记 4 张 / 知识库 3 张 / AI 4 张）
+- 业务模块：笔记 → AI 助手（接入 store + SSE 持久化）→ 知识库 + RAG
+- `KnowledgeBase.vue`(549) 与 `Settings.vue`(601) 的拆分（仅剩的两个超 400 行文件）
 
 **执行顺序**（详见 [MVP 计划](文档/05-开发计划/02-MVP开发计划.md) 的"执行顺序修正"一节）：
 ```
