@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { Button, Input } from '@/components/ui'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/authStore'
+import { PASSWORD_MIN_LENGTH, validatePassword } from '@/utils/passwordPolicy'
 
 /**
  * 注册表单。
@@ -37,8 +38,6 @@ const errors = reactive({ username: '', email: '', password: '' })
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PASSWORD_MIN = 8
-const PASSWORD_MAX = 100
 
 function validateAll(): boolean {
   // 用户名
@@ -65,16 +64,8 @@ function validateAll(): boolean {
     errors.email = ''
   }
 
-  // 密码
-  if (!password.value) {
-    errors.password = '请输入密码'
-  } else if (password.value.length < PASSWORD_MIN) {
-    errors.password = `密码至少 ${PASSWORD_MIN} 位（当前 ${password.value.length} 位）`
-  } else if (password.value.length > PASSWORD_MAX) {
-    errors.password = `密码不能超过 ${PASSWORD_MAX} 位`
-  } else {
-    errors.password = ''
-  }
+  // 密码交给 passwordPolicy，避免这里的规则和后端走偏
+  errors.password = validatePassword(password.value)
 
   return !errors.username && !errors.email && !errors.password
 }
@@ -148,14 +139,14 @@ async function handleSubmit(): Promise<void> {
         v-model="password"
         type="password"
         autocomplete="new-password"
-        :placeholder="`至少 ${PASSWORD_MIN} 位`"
+        :placeholder="`至少 ${PASSWORD_MIN_LENGTH} 位`"
         :disabled="submitting"
         :class="errors.password ? 'border-destructive' : ''"
       />
       <p v-if="errors.password" class="text-xs text-destructive">{{ errors.password }}</p>
       <!-- 实时提示：不必猜"还差多少" -->
-      <p v-else-if="password.length > 0 && password.length < PASSWORD_MIN" class="text-xs text-muted-foreground">
-        还需 {{ PASSWORD_MIN - password.length }} 位
+      <p v-else-if="password.length > 0 && password.length < PASSWORD_MIN_LENGTH" class="text-xs text-muted-foreground">
+        还需 {{ PASSWORD_MIN_LENGTH - password.length }} 位
       </p>
     </div>
 
