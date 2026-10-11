@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, PasswordInput } from '@/components/ui'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/authStore'
 import { validateEmail } from '@/utils/emailPolicy'
@@ -123,10 +123,9 @@ async function handleSubmit(): Promise<void> {
 
     <div class="space-y-1.5">
       <label for="reg-password" class="text-sm font-medium">密码</label>
-      <Input
+      <PasswordInput
         id="reg-password"
         v-model="password"
-        type="password"
         autocomplete="new-password"
         :placeholder="`至少 ${PASSWORD_MIN_LENGTH} 位`"
         :disabled="submitting"

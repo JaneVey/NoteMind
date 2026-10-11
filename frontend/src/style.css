@@ -100,3 +100,11 @@
     max-height: 500px;
   }
 }
+
+/* Edge / Chromium 会在密码框里塞一个自带的显隐按钮。
+   它的显示依赖元素是否聚焦、是否被禁用，提交时输入框被禁用就会把它弄丢，
+   而且只有这两个浏览器有。统一用自己的 PasswordInput，把它隐藏掉。 */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
