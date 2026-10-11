@@ -20,7 +20,6 @@ import { PASSWORD_MIN_LENGTH, validatePassword } from '@/utils/passwordPolicy'
 
 const emit = defineEmits<{
   (e: 'registered', username: string): void
-  (e: 'switch-to-login'): void
 }>()
 
 const auth = useAuthStore()
@@ -102,7 +101,7 @@ async function handleSubmit(): Promise<void> {
         autocomplete="username"
         placeholder="3-50 位字母、数字、下划线或连字符"
         :disabled="submitting"
-        :class="errors.username ? 'border-destructive' : ''"
+        :class="`h-10 ${errors.username ? 'border-destructive' : ''}`"
       />
       <p v-if="errors.username" class="text-xs text-destructive">{{ errors.username }}</p>
     </div>
@@ -116,7 +115,7 @@ async function handleSubmit(): Promise<void> {
         autocomplete="email"
         placeholder="用于找回密码"
         :disabled="submitting"
-        :class="errors.email ? 'border-destructive' : ''"
+        :class="`h-10 ${errors.email ? 'border-destructive' : ''}`"
       />
       <p v-if="errors.email" class="text-xs text-destructive">{{ errors.email }}</p>
     </div>
@@ -129,7 +128,7 @@ async function handleSubmit(): Promise<void> {
         autocomplete="new-password"
         :placeholder="`至少 ${PASSWORD_MIN_LENGTH} 位`"
         :disabled="submitting"
-        :class="errors.password ? 'border-destructive' : ''"
+        :class="`h-10 ${errors.password ? 'border-destructive' : ''}`"
       />
       <p v-if="errors.password" class="text-xs text-destructive">{{ errors.password }}</p>
       <!-- 实时提示：不必猜"还差多少" -->
@@ -146,6 +145,7 @@ async function handleSubmit(): Promise<void> {
         id="reg-nickname"
         v-model="nickname"
         type="text"
+        class="h-10"
         placeholder="不填则与用户名相同"
         :disabled="submitting"
       />
@@ -156,20 +156,9 @@ async function handleSubmit(): Promise<void> {
     </p>
 
     <!-- 按钮只在提交中禁用：点了就会看到具体哪里不合格 -->
-    <Button type="submit" class="w-full" :disabled="submitting">
+    <Button type="submit" class="h-10 w-full" :disabled="submitting">
       <Loader2 v-if="submitting" class="mr-2 h-4 w-4 animate-spin" />
       {{ submitting ? '注册中…' : '注册' }}
     </Button>
-
-    <p class="text-center text-sm text-muted-foreground">
-      已有账号？
-      <button
-        type="button"
-        class="font-medium text-primary underline-offset-4 hover:underline"
-        @click="emit('switch-to-login')"
-      >
-        去登录
-      </button>
-    </p>
   </form>
 </template>

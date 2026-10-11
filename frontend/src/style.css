@@ -108,3 +108,14 @@ input::-ms-reveal,
 input::-ms-clear {
   display: none;
 }
+
+/* 浏览器自动填充会给输入框盖上一层自己的底色（Chrome 是 #e8f0fe），
+   和我们定义的白底对不上，同一个表单里会出现"一个框有底色、一个没有"。
+   底色本身改不了，用 inset 阴影盖住它。 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: hsl(var(--foreground));
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--background)) inset;
+  caret-color: hsl(var(--foreground));
+}

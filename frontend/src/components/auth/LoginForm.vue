@@ -27,7 +27,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'success'): void
-  (e: 'switch-to-register'): void
 }>()
 
 const auth = useAuthStore()
@@ -101,7 +100,7 @@ async function handleSubmit(): Promise<void> {
         autocomplete="username"
         placeholder="admin 或 admin@notemind.local"
         :disabled="submitting"
-        :class="errors.identifier ? 'border-destructive' : ''"
+        :class="`h-10 ${errors.identifier ? 'border-destructive' : ''}`"
       />
       <p v-if="errors.identifier" class="text-xs text-destructive">{{ errors.identifier }}</p>
     </div>
@@ -114,7 +113,7 @@ async function handleSubmit(): Promise<void> {
         autocomplete="current-password"
         placeholder="请输入密码"
         :disabled="submitting"
-        :class="errors.password ? 'border-destructive' : ''"
+        :class="`h-10 ${errors.password ? 'border-destructive' : ''}`"
       />
       <p v-if="errors.password" class="text-xs text-destructive">{{ errors.password }}</p>
     </div>
@@ -133,20 +132,9 @@ async function handleSubmit(): Promise<void> {
       {{ serverError }}
     </p>
 
-    <Button type="submit" class="w-full" :disabled="submitting">
+    <Button type="submit" class="h-10 w-full" :disabled="submitting">
       <Loader2 v-if="submitting" class="mr-2 h-4 w-4 animate-spin" />
       {{ submitting ? '登录中…' : '登录' }}
     </Button>
-
-    <p class="text-center text-sm text-muted-foreground">
-      还没有账号？
-      <button
-        type="button"
-        class="font-medium text-primary underline-offset-4 hover:underline"
-        @click="emit('switch-to-register')"
-      >
-        立即注册
-      </button>
-    </p>
   </form>
 </template>
