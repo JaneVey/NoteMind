@@ -4,10 +4,10 @@
  * <p>必须与后端 {@code com.notemind.common.validation.PasswordPolicy} 保持一致，
  * 改这里就要同时改那里，否则会出现"前端过了后端拒"。
  *
- * <p>规则：8-64 位 ASCII 可见字符（不含空格）。限定 ASCII 的原因见后端那个类的注释。
+ * <p>规则：6-64 位 ASCII 可见字符（不含空格）。限定 ASCII 的原因见后端那个类的注释。
  */
 
-export const PASSWORD_MIN_LENGTH = 8
+export const PASSWORD_MIN_LENGTH = 6
 export const PASSWORD_MAX_LENGTH = 64
 
 /** ASCII 可见字符 0x21-0x7E，排除空格 */

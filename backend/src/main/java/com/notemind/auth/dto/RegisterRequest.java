@@ -1,7 +1,7 @@
 package com.notemind.auth.dto;
 
+import com.notemind.common.validation.EmailPolicy;
 import com.notemind.common.validation.PasswordPolicy;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -30,8 +30,8 @@ public class RegisterRequest {
     private String password;
 
     @NotBlank(message = "邮箱不能为空")
-    @Email(message = "邮箱格式不正确")
-    @Size(max = 255, message = "邮箱长度不能超过 255 个字符")
+    @Size(max = EmailPolicy.MAX_LENGTH, message = "邮箱长度不能超过 254 个字符")
+    @Pattern(regexp = EmailPolicy.REGEX, message = EmailPolicy.MESSAGE)
     private String email;
 
     @Size(max = 100, message = "昵称不能超过 100 个字符")

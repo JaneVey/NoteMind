@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { Button, Input } from '@/components/ui'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/authStore'
+import { validateEmail } from '@/utils/emailPolicy'
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/utils/passwordPolicy'
 
 /**
@@ -37,7 +38,6 @@ const attempted = ref(false)
 const errors = reactive({ username: '', email: '', password: '' })
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function validateAll(): boolean {
   // 用户名
@@ -52,19 +52,8 @@ function validateAll(): boolean {
     errors.username = ''
   }
 
-  // 邮箱
-  const mail = email.value.trim()
-  if (!mail) {
-    errors.email = '请输入邮箱'
-  } else if (!EMAIL_PATTERN.test(mail)) {
-    errors.email = '邮箱格式不正确，例如 name@example.com'
-  } else if (mail.length > 255) {
-    errors.email = '邮箱长度不能超过 255 个字符'
-  } else {
-    errors.email = ''
-  }
-
-  // 密码交给 passwordPolicy，避免这里的规则和后端走偏
+  // 邮箱和密码都交给各自的 policy，避免规则在这里和后端走偏
+  errors.email = validateEmail(email.value.trim())
   errors.password = validatePassword(password.value)
 
   return !errors.username && !errors.email && !errors.password
