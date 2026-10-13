@@ -14,6 +14,8 @@ import com.notemind.auth.token.RefreshSession;
 import com.notemind.common.exception.BusinessException;
 import com.notemind.common.exception.ErrorCode;
 import com.notemind.framework.config.AuthProperties;
+import com.notemind.framework.audit.OperationLogRecorder;
+import com.notemind.framework.audit.SysOperationLog;
 import com.notemind.user.entity.SysUser;
 import com.notemind.user.entity.UserStatus;
 import com.notemind.user.mapper.SysUserMapper;
@@ -38,11 +40,16 @@ import java.time.OffsetDateTime;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final String AUDIT_MODULE = "auth";
+
+    private static final String AUDIT_OPERATION_LOGIN = "LOGIN";
+
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final LoginAttemptStore loginAttemptStore;
     private final AuthProperties authProperties;
+    private final OperationLogRecorder operationLogRecorder;
 
     /**
      * 注册。
@@ -95,6 +102,7 @@ public class AuthServiceImpl implements AuthService {
         // 来源地址在窗口内失败过多则直接拒绝。放在核对密码之前，
         // 被拦下的请求不会消耗一次 BCrypt 计算
         if (loginAttemptStore.countIpFailures(clientIp) >= throttle.getIpMaxFailures()) {
+            auditLogin(null, identifier, ErrorCode.LOGIN_TOO_FREQUENT, clientIp, userAgent);
             log.warn("登录被拒（来源地址失败次数过多）: ip={}", clientIp);
             throw new BusinessException(ErrorCode.LOGIN_TOO_FREQUENT);
         }
@@ -107,28 +115,33 @@ public class AuthServiceImpl implements AuthService {
         // 账号不存在 与 密码不匹配 用同一个错误码，不泄露"该账号是否已注册"
         if (user == null) {
             recordFailure(identifier, clientIp, window);
+            auditLogin(null, identifier, ErrorCode.LOGIN_FAILED, clientIp, userAgent);
             log.warn("登录失败（账号不存在）: identifier={} ip={}", identifier, clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
         // 第三方登录注册的账号没有密码 —— 必须明确告知，否则用户会以为自己密码打错了
         if (user.getPassword() == null) {
+            auditLogin(user.getId(), identifier, ErrorCode.OAUTH_ACCOUNT_ONLY, clientIp, userAgent);
             log.info("密码登录被拒（该账号仅支持第三方登录）: userId={}", user.getId());
             throw new BusinessException(ErrorCode.OAUTH_ACCOUNT_ONLY);
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             recordFailure(identifier, clientIp, window);
+            auditLogin(user.getId(), identifier, ErrorCode.LOGIN_FAILED, clientIp, userAgent);
             log.warn("登录失败（密码错误）: userId={} ip={}", user.getId(), clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
         if (!UserStatus.ACTIVE.equals(user.getStatus())) {
+            auditLogin(user.getId(), identifier, ErrorCode.ACCOUNT_DISABLED, clientIp, userAgent);
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
 
         // 登录成功才清账号计数；IP 计数不清，它衡量的是来源地址而非账号
         loginAttemptStore.clearIdentifierFailures(identifier);
+        auditLogin(user.getId(), identifier, null, clientIp, userAgent);
 
         boolean rememberMe = Boolean.TRUE.equals(request.getRememberMe());
         IssuedTokens tokens = tokenService.issue(
@@ -213,6 +226,27 @@ public class AuthServiceImpl implements AuthService {
             // 恢复中断标记后继续：延迟只是防护措施，不该因线程被中断而改变登录结果
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * 记一条登录审计。{@code errorCode} 为 null 表示成功。
+     *
+     * <p>{@code userId} 允许为 null —— 账号不存在时也要留痕，那正是被攻击时才有价值的记录。
+     * {@code requestParam} 只放 identifier，**绝不放密码**。
+     */
+    private void auditLogin(Long userId, String identifier, ErrorCode errorCode,
+                            String clientIp, String userAgent) {
+        SysOperationLog entry = new SysOperationLog();
+        entry.setUserId(userId);
+        entry.setModule(AUDIT_MODULE);
+        entry.setOperation(AUDIT_OPERATION_LOGIN);
+        entry.setSuccess(errorCode == null);
+        entry.setErrorCode(errorCode == null ? null : errorCode.getCode());
+        entry.setErrorMessage(errorCode == null ? null : errorCode.getMessage());
+        entry.setRequestParam("identifier=" + identifier);
+        entry.setClientIp(clientIp);
+        entry.setUserAgent(userAgent);
+        operationLogRecorder.record(entry);
     }
 
     /** 记录最近登录时间（登录审计）。只更新这一个字段 */

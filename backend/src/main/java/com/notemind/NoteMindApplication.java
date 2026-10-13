@@ -9,7 +9,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "com.notemind.user.mapper",
         "com.notemind.note.mapper",
         "com.notemind.knowledge.mapper",
-        "com.notemind.ai.mapper"
+        "com.notemind.ai.mapper",
+        "com.notemind.framework.audit"
 })
 public class NoteMindApplication {
 
