@@ -30,6 +30,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenCookie refreshTokenCookie;
+    private final RequestUtils requestUtils;
 
     @PostMapping("/register")
     public Result<Void> register(@Valid @RequestBody RegisterRequest request) {
@@ -42,7 +43,7 @@ public class AuthController {
                                       HttpServletRequest httpRequest,
                                       HttpServletResponse httpResponse) {
         AuthResult result = authService.login(
-                request, RequestUtils.userAgent(httpRequest), RequestUtils.clientIp(httpRequest));
+                request, requestUtils.userAgent(httpRequest), requestUtils.clientIp(httpRequest));
 
         refreshTokenCookie.write(httpResponse, result.refreshToken(), result.refreshTtl());
         return Result.success(result.body());
@@ -57,8 +58,8 @@ public class AuthController {
                                         HttpServletResponse httpResponse) {
         AuthResult result = authService.refresh(
                 refreshTokenCookie.read(httpRequest),
-                RequestUtils.userAgent(httpRequest),
-                RequestUtils.clientIp(httpRequest));
+                requestUtils.userAgent(httpRequest),
+                requestUtils.clientIp(httpRequest));
 
         // 轮换后的新 refresh token 覆盖旧 Cookie
         refreshTokenCookie.write(httpResponse, result.refreshToken(), result.refreshTtl());
