@@ -36,6 +36,15 @@ CREATE EXTENSION IF NOT EXISTS vector;   -- 向量检索（pgvector）
 -- 应用层只要有一处忘了规范化，就会产生重复账号。
 CREATE EXTENSION IF NOT EXISTS citext;
 
+-- 会话默认时区设为东八区。
+-- 只影响 psql / Navicat 等客户端「默认怎么显示」：时间列一律 TIMESTAMPTZ，
+-- 存的是时间点、不存时区，因此数据本身不受这里影响。
+-- 不写死库名：DB_NAME 被改后写死的 ALTER 会报错，而初始化脚本一报错就整个中断。
+DO $$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I SET TimeZone = ''Asia/Shanghai''', current_database());
+END $$;
+
 -- ============================================================
 -- 1. sys_user  用户（登录账号）
 --    删除策略：硬删（注销即物理删除）
