@@ -32,6 +32,10 @@ Thumbs.db
 文档/
 
 # 编码助手的工作约定文件（本地使用，不发布）
+CLAUDE.md
+CLAUDE.local.md
+# 上一代助手（Codex / DSH）的约定文件，内容已并入 CLAUDE.md，待删除。
+# 保留这两行是为了避免在删除之前被 git add 误提交到公开仓库
 AGENTS.md
 AGENTS.local.md
 
