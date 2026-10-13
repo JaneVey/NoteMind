@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { Id } from '@/types/common'
+import { escapeHtml, renderMarkdown, renderRichHtml } from '@/utils/markdown'
 import EditorToolbar from './EditorToolbar.vue'
 import FindPanel from './FindPanel.vue'
 import type { ViewMode } from './types'
@@ -198,67 +199,7 @@ function syncRichEditor(): void {
 }
 
 function loadRichEditor(): void {
-  if (richEditorRef.value) richEditorRef.value.innerHTML = markdownToRichHtml(props.content)
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function markdownInlineToHtml(value: string): string {
-  return escapeHtml(value)
-    .replace(/\[\[(.*?)\]\]/g, '<span class="wikilink-chip" contenteditable="false">$1</span>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/~~(.*?)~~/g, '<s>$1</s>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-}
-
-function markdownToRichHtml(value: string): string {
-  const lines = value.split('\n')
-  const blocks: string[] = []
-  let index = 0
-
-  while (index < lines.length) {
-    const line = lines[index]
-    if (!line.trim()) {
-      index += 1
-      continue
-    }
-    const heading = line.match(/^(#{1,3})\s+(.*)$/)
-    if (heading) {
-      const level = heading[1].length
-      blocks.push(`<h${level}>${markdownInlineToHtml(heading[2])}</h${level}>`)
-      index += 1
-      continue
-    }
-    if (line.startsWith('- ')) {
-      const items: string[] = []
-      while (index < lines.length && lines[index].startsWith('- ')) {
-        items.push(`<li>${markdownInlineToHtml(lines[index].slice(2))}</li>`)
-        index += 1
-      }
-      blocks.push(`<ul>${items.join('')}</ul>`)
-      continue
-    }
-    if (/^\d+\.\s/.test(line)) {
-      const items: string[] = []
-      while (index < lines.length && /^\d+\.\s/.test(lines[index])) {
-        items.push(`<li>${markdownInlineToHtml(lines[index].replace(/^\d+\.\s/, ''))}</li>`)
-        index += 1
-      }
-      blocks.push(`<ol>${items.join('')}</ol>`)
-      continue
-    }
-    if (line.startsWith('> ')) {
-      blocks.push(`<blockquote>${markdownInlineToHtml(line.slice(2))}</blockquote>`)
-      index += 1
-      continue
-    }
-    blocks.push(`<p>${markdownInlineToHtml(line)}</p>`)
-    index += 1
-  }
-  return blocks.join('')
+  if (richEditorRef.value) richEditorRef.value.innerHTML = renderRichHtml(props.content)
 }
 
 function richHtmlToMarkdown(html: string): string {
@@ -294,21 +235,6 @@ function richHtmlToMarkdown(html: string): string {
     }
   }
   return Array.from(documentNode.body.childNodes).map(serialize).join('').replace(/\n{3,}/g, '\n\n').trim()
-}
-
-function renderMarkdown(value: string): string {
-  return escapeHtml(value)
-    .replace(/^### (.*)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.*)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.*)$/gm, '<h1>$1</h1>')
-    .replace(/^> (.*)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^- (.*)$/gm, '<li>$1</li>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^/, '<p>')
-    .replace(/$/, '</p>')
 }
 
 // 进入写作模式：DOM 更新完再把 Markdown 渲染进富文本编辑器
