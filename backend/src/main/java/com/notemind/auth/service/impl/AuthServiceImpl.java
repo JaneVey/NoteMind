@@ -44,6 +44,10 @@ public class AuthServiceImpl implements AuthService {
 
     private static final String AUDIT_OPERATION_LOGIN = "LOGIN";
 
+    private static final String AUDIT_OPERATION_LOGOUT = "LOGOUT";
+
+    private static final String AUDIT_OPERATION_REGISTER = "REGISTER";
+
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
@@ -59,11 +63,12 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void register(RegisterRequest request) {
+    public void register(RegisterRequest request, String userAgent, String clientIp) {
         Long count = sysUserMapper.selectCount(
                 new LambdaQueryWrapper<SysUser>()
                         .eq(SysUser::getUsername, request.getUsername()));
         if (count > 0) {
+            auditRegister(null, request, ErrorCode.USERNAME_EXISTS, clientIp, userAgent);
             throw new BusinessException(ErrorCode.USERNAME_EXISTS);
         }
 
@@ -73,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
                 new LambdaQueryWrapper<SysUser>()
                         .eq(SysUser::getEmail, request.getEmail()));
         if (emailCount > 0) {
+            auditRegister(null, request, ErrorCode.EMAIL_EXISTS, clientIp, userAgent);
             throw new BusinessException(ErrorCode.EMAIL_EXISTS);
         }
 
@@ -90,6 +96,7 @@ public class AuthServiceImpl implements AuthService {
         //  当前种子数据只挂在 admin(user_id=1) 名下，导致每个新注册用户登录后应用是空的。
         //  待对应业务表设计时一并处理。
 
+        auditRegister(user.getId(), request, null, clientIp, userAgent);
         log.info("用户注册成功: userId={} username={}", user.getId(), user.getUsername());
     }
 
@@ -175,10 +182,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(String refreshToken) {
-        tokenService.revoke(refreshToken);
-        // 不记录 token 内容，只说明发生了一次登出
-        log.info("用户登出");
+    public void logout(String refreshToken, String userAgent, String clientIp) {
+        Long userId = tokenService.revoke(refreshToken);
+        auditLogout(userId, clientIp, userAgent);
+        // 不记录 token 内容，只说明发生了一次登出。userId 为 null 表示 token 已失效或不存在
+        log.info("用户登出: userId={}", userId);
     }
 
     // ------------------------------------------------------------------
@@ -228,22 +236,39 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    /**
-     * 记一条登录审计。{@code errorCode} 为 null 表示成功。
-     *
-     * <p>{@code userId} 允许为 null —— 账号不存在时也要留痕，那正是被攻击时才有价值的记录。
-     * {@code requestParam} 只放 identifier，**绝不放密码**。
-     */
     private void auditLogin(Long userId, String identifier, ErrorCode errorCode,
                             String clientIp, String userAgent) {
+        record(AUDIT_OPERATION_LOGIN, userId, "identifier=" + identifier, errorCode, clientIp, userAgent);
+    }
+
+    /** 记一条登出审计。{@code userId} 为 null 表示 token 已失效或不存在 —— 那本身也值得留痕 */
+    private void auditLogout(Long userId, String clientIp, String userAgent) {
+        record(AUDIT_OPERATION_LOGOUT, userId, null, null, clientIp, userAgent);
+    }
+
+    private void auditRegister(Long userId, RegisterRequest request, ErrorCode errorCode,
+                               String clientIp, String userAgent) {
+        record(AUDIT_OPERATION_REGISTER, userId,
+                "username=" + request.getUsername() + " email=" + request.getEmail(),
+                errorCode, clientIp, userAgent);
+    }
+
+    /**
+     * 装配一条操作日志并交给异步写入方。
+     *
+     * <p>{@code userId} 允许为 null（账号不存在 / token 已失效时也要留痕，那正是被攻击时
+     * 才有价值的记录）。{@code requestParam} 只放账号标识，**绝不放密码**。
+     */
+    private void record(String operation, Long userId, String requestParam,
+                        ErrorCode errorCode, String clientIp, String userAgent) {
         SysOperationLog entry = new SysOperationLog();
         entry.setUserId(userId);
         entry.setModule(AUDIT_MODULE);
-        entry.setOperation(AUDIT_OPERATION_LOGIN);
+        entry.setOperation(operation);
         entry.setSuccess(errorCode == null);
         entry.setErrorCode(errorCode == null ? null : errorCode.getCode());
         entry.setErrorMessage(errorCode == null ? null : errorCode.getMessage());
-        entry.setRequestParam("identifier=" + identifier);
+        entry.setRequestParam(requestParam);
         entry.setClientIp(clientIp);
         entry.setUserAgent(userAgent);
         operationLogRecorder.record(entry);

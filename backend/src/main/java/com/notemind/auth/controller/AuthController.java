@@ -33,8 +33,10 @@ public class AuthController {
     private final RequestUtils requestUtils;
 
     @PostMapping("/register")
-    public Result<Void> register(@Valid @RequestBody RegisterRequest request) {
-        authService.register(request);
+    public Result<Void> register(@Valid @RequestBody RegisterRequest request,
+                                 HttpServletRequest httpRequest) {
+        authService.register(request,
+                requestUtils.userAgent(httpRequest), requestUtils.clientIp(httpRequest));
         return Result.success();
     }
 
@@ -70,7 +72,8 @@ public class AuthController {
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest httpRequest,
                                HttpServletResponse httpResponse) {
-        authService.logout(refreshTokenCookie.read(httpRequest));
+        authService.logout(refreshTokenCookie.read(httpRequest),
+                requestUtils.userAgent(httpRequest), requestUtils.clientIp(httpRequest));
         refreshTokenCookie.clear(httpResponse);
         return Result.success();
     }

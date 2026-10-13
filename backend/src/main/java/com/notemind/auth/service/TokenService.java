@@ -35,8 +35,12 @@ public interface TokenService {
      */
     RefreshSession consume(String refreshToken);
 
-    /** 吊销单个 refresh token（登出） */
-    void revoke(String refreshToken);
+    /**
+     * 吊销单个 refresh token（登出）。
+     *
+     * @return 被吊销会话的 userId；token 为空、不存在或已失效时返回 null
+     */
+    Long revoke(String refreshToken);
 
     /** 计算 refresh token 有效期 */
     Duration refreshTtl(boolean rememberMe);

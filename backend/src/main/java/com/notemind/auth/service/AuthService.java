@@ -12,7 +12,7 @@ import com.notemind.auth.dto.RegisterRequest;
 public interface AuthService {
 
     /** 注册新用户。注册成功后不自动登录，由前端引导登录 */
-    void register(RegisterRequest request);
+    void register(RegisterRequest request, String userAgent, String clientIp);
 
     /**
      * 登录，支持用户名或邮箱。
@@ -33,5 +33,5 @@ public interface AuthService {
     AuthResult refresh(String refreshToken, String userAgent, String clientIp);
 
     /** 登出：吊销该 refresh token。token 为空时静默返回（幂等） */
-    void logout(String refreshToken);
+    void logout(String refreshToken, String userAgent, String clientIp);
 }

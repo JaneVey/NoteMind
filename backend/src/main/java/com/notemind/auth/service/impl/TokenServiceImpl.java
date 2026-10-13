@@ -79,12 +79,16 @@ public class TokenServiceImpl implements TokenService {
     }
 
     @Override
-    public void revoke(String refreshToken) {
+    public Long revoke(String refreshToken) {
         if (!StringUtils.hasText(refreshToken)) {
-            return;
+            return null;
         }
-        refreshTokenStore.find(refreshToken).ifPresent(session ->
-                refreshTokenStore.remove(refreshToken, session.userId()));
+        RefreshSession session = refreshTokenStore.find(refreshToken).orElse(null);
+        if (session == null) {
+            return null;
+        }
+        refreshTokenStore.remove(refreshToken, session.userId());
+        return session.userId();
     }
 
     @Override
