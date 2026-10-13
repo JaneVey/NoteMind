@@ -102,6 +102,10 @@ services:
       # 以下两个必须由部署者通过 .env 注入，不得使用默认值
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 必须设置}
       AI_API_KEY: ${AI_API_KEY:-}
+      # 生产强制 HTTPS：Refresh Cookie 必须带 Secure 属性。
+      # 不加这一项会让启动强校验直接拒绝启动 —— 这是刻意的，
+      # 明文 HTTP 下发送长期凭据本身就是配置错误。
+      AUTH_REFRESH_COOKIE_SECURE: "true"
     expose:
       - "8080"
     restart: unless-stopped
