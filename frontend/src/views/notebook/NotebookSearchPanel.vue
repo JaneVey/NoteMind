@@ -50,6 +50,7 @@ import { computed, ref } from 'vue'
 import { Check, ChevronDown, Folder, Search, X } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
+import { escapeHtml, sanitizeHtml } from '@/utils/markdown'
 import { compareNotesBy, findFolderName, sortOptions } from './noteList'
 import type { NotebookFolder, NotebookNote, SortOption } from './types'
 
@@ -85,10 +86,6 @@ function folderName(folderId: Id | null): string {
   return findFolderName(props.folders, folderId)
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
 function searchExcerptFor(note: NotebookNote): string {
   const content = note.content
     .replace(/^#{1,6}\s+/gm, '')
@@ -119,9 +116,9 @@ function searchMatchCount(note: NotebookNote): number {
 function highlightSearchText(value: string): string {
   const escapedValue = escapeHtml(value)
   const keyword = searchKeyword.value.trim()
-  if (!keyword) return escapedValue
+  if (!keyword) return sanitizeHtml(escapedValue)
   const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return escapedValue.replace(new RegExp(`(${escapedKeyword})`, 'gi'), '<mark>$1</mark>')
+  return sanitizeHtml(escapedValue.replace(new RegExp(`(${escapedKeyword})`, 'gi'), '<mark>$1</mark>'))
 }
 
 function selectSearchSort(option: SortOption): void {
