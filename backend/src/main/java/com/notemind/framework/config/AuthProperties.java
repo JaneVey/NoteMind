@@ -14,6 +14,8 @@ public class AuthProperties {
 
     private RefreshToken refreshToken = new RefreshToken();
 
+    private LoginThrottle loginThrottle = new LoginThrottle();
+
     @Data
     public static class RefreshToken {
 
@@ -34,5 +36,25 @@ public class AuthProperties {
 
         /** 勾选"记住我"后的有效期（天） */
         private long rememberMeTtlDays = 30;
+    }
+
+    /** 登录防爆破。按 IP 限流为主，账号维度只做递进延迟，不锁定账号 */
+    @Data
+    public static class LoginThrottle {
+
+        /** 失败计数的统计窗口（分钟） */
+        private int windowMinutes = 15;
+
+        /** 同一 IP 在窗口内允许的最大失败次数，达到即拒绝 */
+        private int ipMaxFailures = 20;
+
+        /** 同一账号失败达到该次数后开始递进延迟 */
+        private int accountDelayThreshold = 5;
+
+        /** 递进延迟的基数（毫秒） */
+        private long baseDelayMillis = 500;
+
+        /** 递进延迟上限（毫秒） */
+        private long maxDelayMillis = 2000;
     }
 }

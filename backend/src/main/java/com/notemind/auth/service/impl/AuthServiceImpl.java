@@ -8,9 +8,12 @@ import com.notemind.auth.dto.RegisterRequest;
 import com.notemind.auth.service.AuthService;
 import com.notemind.auth.service.TokenService;
 import com.notemind.auth.token.IssuedTokens;
+import com.notemind.auth.token.LoginAttemptStore;
+import com.notemind.auth.token.LoginThrottlePolicy;
 import com.notemind.auth.token.RefreshSession;
 import com.notemind.common.exception.BusinessException;
 import com.notemind.common.exception.ErrorCode;
+import com.notemind.framework.config.AuthProperties;
 import com.notemind.user.entity.SysUser;
 import com.notemind.user.entity.UserStatus;
 import com.notemind.user.mapper.SysUserMapper;
@@ -21,12 +24,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 /**
  * 认证服务实现。
  *
- * <p>登录按顺序做四项检查，顺序有意义：账号存在 → 有密码 → 密码匹配 → 未禁用。
+ * <p>登录顺序有意义：来源限流 → 账号递进延迟 → 账号存在 → 有密码 → 密码匹配 → 未禁用。
  * 其中「账号不存在」必须与「密码错误」返回同一个错误码。
  */
 @Slf4j
@@ -37,6 +41,8 @@ public class AuthServiceImpl implements AuthService {
     private final SysUserMapper sysUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
+    private final LoginAttemptStore loginAttemptStore;
+    private final AuthProperties authProperties;
 
     /**
      * 注册。
@@ -82,11 +88,26 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResult login(LoginRequest request, String userAgent, String clientIp) {
-        SysUser user = findByIdentifier(request.getIdentifier());
+        String identifier = request.getIdentifier();
+        AuthProperties.LoginThrottle throttle = authProperties.getLoginThrottle();
+        Duration window = Duration.ofMinutes(throttle.getWindowMinutes());
+
+        // 来源地址在窗口内失败过多则直接拒绝。放在核对密码之前，
+        // 被拦下的请求不会消耗一次 BCrypt 计算
+        if (loginAttemptStore.countIpFailures(clientIp) >= throttle.getIpMaxFailures()) {
+            log.warn("登录被拒（来源地址失败次数过多）: ip={}", clientIp);
+            throw new BusinessException(ErrorCode.LOGIN_TOO_FREQUENT);
+        }
+
+        // 该账号已多次失败则先延迟。正确密码同样要等 —— 延迟惩罚的是反复试错这个行为
+        applyFailureDelay(identifier, throttle);
+
+        SysUser user = findByIdentifier(identifier);
 
         // 账号不存在 与 密码不匹配 用同一个错误码，不泄露"该账号是否已注册"
         if (user == null) {
-            log.warn("登录失败（账号不存在）: identifier={} ip={}", request.getIdentifier(), clientIp);
+            recordFailure(identifier, clientIp, window);
+            log.warn("登录失败（账号不存在）: identifier={} ip={}", identifier, clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
@@ -97,6 +118,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            recordFailure(identifier, clientIp, window);
             log.warn("登录失败（密码错误）: userId={} ip={}", user.getId(), clientIp);
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
@@ -104,6 +126,9 @@ public class AuthServiceImpl implements AuthService {
         if (!UserStatus.ACTIVE.equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
+
+        // 登录成功才清账号计数；IP 计数不清，它衡量的是来源地址而非账号
+        loginAttemptStore.clearIdentifierFailures(identifier);
 
         boolean rememberMe = Boolean.TRUE.equals(request.getRememberMe());
         IssuedTokens tokens = tokenService.issue(
@@ -158,6 +183,36 @@ public class AuthServiceImpl implements AuthService {
                         .eq(SysUser::getUsername, identifier)
                         .or()
                         .eq(SysUser::getEmail, identifier));
+    }
+
+    /**
+     * 记一次凭据失败。账号维度与来源地址维度各记一次：
+     * 前者用于递进延迟，后者用于限流。
+     */
+    private void recordFailure(String identifier, String clientIp, Duration window) {
+        loginAttemptStore.recordIdentifierFailure(identifier, window);
+        loginAttemptStore.recordIpFailure(clientIp, window);
+    }
+
+    /** 该账号失败次数已达阈值时先延迟再继续。延迟不改变登录结果，只惩罚反复试错 */
+    private void applyFailureDelay(String identifier, AuthProperties.LoginThrottle throttle) {
+        long failures = loginAttemptStore.countIdentifierFailures(identifier);
+        long delay = LoginThrottlePolicy.delayMillis(
+                (int) failures,
+                throttle.getAccountDelayThreshold(),
+                throttle.getBaseDelayMillis(),
+                throttle.getMaxDelayMillis());
+        if (delay <= 0) {
+            return;
+        }
+
+        log.warn("账号失败次数偏多，延迟 {}ms 后继续: identifier={}", delay, identifier);
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException e) {
+            // 恢复中断标记后继续：延迟只是防护措施，不该因线程被中断而改变登录结果
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** 记录最近登录时间（登录审计）。只更新这一个字段 */
