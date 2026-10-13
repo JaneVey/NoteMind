@@ -163,6 +163,21 @@ app:
       ttl-days: ${AUTH_REFRESH_TTL_DAYS:7}
       remember-me-ttl-days: ${AUTH_REFRESH_REMEMBER_ME_TTL_DAYS:30}
 
+    # ------------------------------------------------------------
+    # 登录防爆破
+    #
+    # 按 IP 限流为主，账号维度只做递进延迟 —— 刻意不做账号锁定，
+    # 那会被攻击者利用来锁死别人的账号（拒绝服务）。
+    # ------------------------------------------------------------
+    login-throttle:
+      window-minutes: ${AUTH_LOGIN_THROTTLE_WINDOW_MINUTES:15}
+      # 同一 IP 在窗口内失败达此次数即拒绝（HTTP 429 / 业务码 2007）
+      ip-max-failures: ${AUTH_LOGIN_THROTTLE_IP_MAX_FAILURES:20}
+      # 同一账号失败达此次数后，每次登录开始递进延迟
+      account-delay-threshold: ${AUTH_LOGIN_THROTTLE_ACCOUNT_DELAY_THRESHOLD:5}
+      base-delay-millis: ${AUTH_LOGIN_THROTTLE_BASE_DELAY_MILLIS:500}
+      max-delay-millis: ${AUTH_LOGIN_THROTTLE_MAX_DELAY_MILLIS:2000}
+
   ai:
     # ------------------------------------------------------------
     # 思考链（reasoning_content）参数形式
