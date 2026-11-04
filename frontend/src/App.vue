@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AuthDialog from '@/components/auth/AuthDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import InputDialog from '@/components/common/InputDialog.vue'
+import ToastStack from '@/components/common/ToastStack.vue'
 import { useAuthStore } from '@/stores/authStore'
 
 /**
@@ -37,6 +40,11 @@ onMounted(async () => {
       任何地方调用 requireAuth() 都能唤起它，不必在每个页面重复挂载。
     -->
     <AuthDialog />
+
+    <!-- 全局确认框、输入框与轻提示，同样由模块级状态驱动 -->
+    <ConfirmDialog />
+    <InputDialog />
+    <ToastStack />
   </template>
 
   <!-- 启动占位：只在这一瞬间可见 -->

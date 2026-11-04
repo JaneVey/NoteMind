@@ -4,9 +4,11 @@ import type { DocumentStatus, KnowledgeDocumentDetail } from '@/types/knowledge'
 import { formatDateTime, formatFileSize } from '@/utils/format'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, FileText, Trash2, RotateCw } from 'lucide-vue-next'
+import { useConfirm } from '@/composables/useConfirm'
 
 const route = useRoute()
 const router = useRouter()
+const { confirm } = useConfirm()
 
 const loading = ref(false)
 const reparsing = ref(false)
@@ -66,7 +68,13 @@ async function handleReparse(): Promise<void> {
 }
 
 async function handleDelete(): Promise<void> {
-  if (!window.confirm('确定要删除该文档吗？此操作不可恢复。')) return
+  const confirmed = await confirm({
+    title: '删除文档',
+    message: '删除后不可恢复。',
+    confirmText: '删除',
+    danger: true,
+  })
+  if (!confirmed) return
   deleting.value = true
   try {
     // TODO 待知识库模块后端实现后接入
