@@ -92,7 +92,8 @@ mybatis-plus:
   global-config:
     banner: false
     db-config:
-      logic-delete-field: is_deleted
+      # 值是实体属性名，不是数据库列名（列名 is_deleted 由 @TableField 映射）
+      logic-delete-field: deleted
       logic-delete-value: true
       logic-not-delete-value: false
   mapper-locations: classpath*:mapper/**/*.xml

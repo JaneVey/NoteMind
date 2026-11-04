@@ -31,4 +31,8 @@ public class NoteNotebook {
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
+
+    @TableLogic
+    @TableField("is_deleted")
+    private Boolean deleted;
 }

@@ -26,11 +26,10 @@ public class Note {
 
     private String contentMd;
 
-    private String contentHtml;
-
     private Integer wordCount;
 
-    private Boolean isPinned;
+    @TableField("is_pinned")
+    private Boolean pinned;
 
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
@@ -38,6 +37,7 @@ public class Note {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
 
+    @TableLogic
     @TableField("is_deleted")
-    private Boolean isDeleted;
+    private Boolean deleted;
 }

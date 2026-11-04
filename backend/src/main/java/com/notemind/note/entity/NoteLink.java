@@ -16,6 +16,8 @@ public class NoteLink {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long userId;
+
     private Long sourceNoteId;
 
     private Long targetNoteId;

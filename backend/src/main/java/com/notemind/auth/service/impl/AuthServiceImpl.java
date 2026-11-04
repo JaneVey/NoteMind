@@ -16,6 +16,8 @@ import com.notemind.common.exception.ErrorCode;
 import com.notemind.framework.config.AuthProperties;
 import com.notemind.framework.audit.OperationLogRecorder;
 import com.notemind.framework.audit.SysOperationLog;
+import com.notemind.note.entity.NoteNotebook;
+import com.notemind.note.mapper.NoteNotebookMapper;
 import com.notemind.user.entity.SysUser;
 import com.notemind.user.entity.UserStatus;
 import com.notemind.user.mapper.SysUserMapper;
@@ -54,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     private final LoginAttemptStore loginAttemptStore;
     private final AuthProperties authProperties;
     private final OperationLogRecorder operationLogRecorder;
+    private final NoteNotebookMapper noteNotebookMapper;
 
     /**
      * 注册。
@@ -92,9 +95,15 @@ public class AuthServiceImpl implements AuthService {
         // emailVerified / status 由数据库默认值给出（false / 'active'）
         sysUserMapper.insert(user);
 
-        // TODO 新用户初始化数据（默认笔记本、预设 Prompt 快捷指令、用户画像）
-        //  当前种子数据只挂在 admin(user_id=1) 名下，导致每个新注册用户登录后应用是空的。
-        //  待对应业务表设计时一并处理。
+        // TODO 新用户初始化数据（预设 Prompt 快捷指令、用户画像）
+        //  当前种子数据只挂在 admin(user_id=1) 名下，待对应业务表设计时一并处理。
+
+        NoteNotebook notebook = new NoteNotebook();
+        notebook.setUserId(user.getId());
+        notebook.setName("我的笔记");
+        notebook.setIcon("📒");
+        notebook.setSortOrder(0);
+        noteNotebookMapper.insert(notebook);
 
         auditRegister(user.getId(), request, null, clientIp, userAgent);
         log.info("用户注册成功: userId={} username={}", user.getId(), user.getUsername());

@@ -167,17 +167,90 @@ CREATE INDEX idx_sys_operation_log_module     ON sys_operation_log (module);
 CREATE INDEX idx_sys_operation_log_created_at ON sys_operation_log (created_at DESC);
 
 -- ============================================================
--- 5. 业务表（待设计 —— 此处仅登记表名与用途，防止命名再次漂移）
+-- 5. 笔记模块
 -- ============================================================
---   笔记模块   note_notebook    笔记本       软删
---              note_folder      文件夹       软删
---              note             笔记         软删
---              note_link        双向链接     硬删（派生数据）
---
+-- 删除策略：note_notebook / note_folder / note 软删；note_link 硬删（派生数据）
+-- 不使用 ON DELETE CASCADE，级联语义由 Service 层显式决定
+-- 正文只存 Markdown，HTML 由前端渲染；列表摘要用 LEFT(content_md, N) 实时截取
+
+-- 5.1 note_notebook 笔记本
+--     删除策略：软删
+--     说明：删除笔记本时，其下文件夹与笔记的处置由 Service 层显式决定
+CREATE TABLE note_notebook (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES sys_user (id),
+    name        VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    icon        VARCHAR(50)  NOT NULL DEFAULT '📒',
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_note_notebook_user_id ON note_notebook (user_id);
+
+-- 5.2 note_folder 文件夹
+--     删除策略：软删
+--     说明：parent_id 为 NULL 表示根目录；删除父文件夹时子文件夹与笔记的处置由 Service 层显式决定
+CREATE TABLE note_folder (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES sys_user (id),
+    notebook_id BIGINT       NOT NULL REFERENCES note_notebook (id),
+    parent_id   BIGINT       REFERENCES note_folder (id),
+    name        VARCHAR(255) NOT NULL,
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_note_folder_user_id     ON note_folder (user_id);
+CREATE INDEX idx_note_folder_notebook_id ON note_folder (notebook_id);
+CREATE INDEX idx_note_folder_parent_id   ON note_folder (parent_id);
+
+-- 5.3 note 笔记
+--     删除策略：软删
+--     说明：folder_id 为 NULL 表示在笔记本根目录
+CREATE TABLE note (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES sys_user (id),
+    notebook_id BIGINT       NOT NULL REFERENCES note_notebook (id),
+    folder_id   BIGINT       REFERENCES note_folder (id),
+    title       VARCHAR(500) NOT NULL DEFAULT '未命名笔记',
+    content_md  TEXT,
+    word_count  INTEGER      NOT NULL DEFAULT 0,
+    is_pinned   BOOLEAN      NOT NULL DEFAULT FALSE,
+    is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_note_user_id            ON note (user_id);
+CREATE INDEX idx_note_notebook_id        ON note (notebook_id);
+CREATE INDEX idx_note_folder_id          ON note (folder_id);
+CREATE INDEX idx_note_user_id_updated_at ON note (user_id, updated_at DESC);
+
+-- 5.4 note_link 双向链接
+--     删除策略：硬删
+--     说明：派生数据，可从正文重新解析；只追加，不设 updated_at
+CREATE TABLE note_link (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        BIGINT      NOT NULL REFERENCES sys_user (id),
+    source_note_id BIGINT      NOT NULL REFERENCES note (id),
+    target_note_id BIGINT      NOT NULL REFERENCES note (id),
+    link_type      VARCHAR(20) NOT NULL DEFAULT 'wikilink',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uk_note_link_source_target ON note_link (source_note_id, target_note_id);
+CREATE INDEX        idx_note_link_user_id      ON note_link (user_id);
+CREATE INDEX        idx_note_link_target       ON note_link (target_note_id);
+
+-- 其余业务表待设计，表名登记（防止命名漂移）：
 --   知识库     knowledge_base       知识库    软删
 --              knowledge_document   文档      软删
 --              knowledge_chunk      知识块    硬删（派生数据，量大）
---
 --   AI         ai_config            供应商配置   硬删
 --              ai_conversation      会话         硬删
 --              ai_message           消息         硬删
@@ -228,3 +301,10 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- 上面手工插入了显式 id，需要把自增序列推到最大值之后，否则后续插入会主键冲突
 SELECT setval('sys_user_id_seq', GREATEST((SELECT MAX(id) FROM sys_user), 1));
+
+-- 管理员的默认笔记本；新注册用户的默认笔记本由 AuthServiceImpl 在注册事务里创建
+INSERT INTO note_notebook (id, user_id, name, description, icon, sort_order)
+VALUES (1, 1, '我的笔记', NULL, '📒', 0)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('note_notebook_id_seq', GREATEST((SELECT MAX(id) FROM note_notebook), 1));

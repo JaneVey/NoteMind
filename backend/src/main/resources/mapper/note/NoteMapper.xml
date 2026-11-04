@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.notemind.note.mapper.NoteMapper">
+
+    <select id="selectListItems" resultType="com.notemind.note.vo.NoteListItemVO">
+        SELECT id,
+               user_id,
+               notebook_id,
+               folder_id,
+               title,
+               LEFT(content_md, 200) AS excerpt,
+               word_count,
+               is_pinned             AS pinned,
+               created_at,
+               updated_at
+        FROM note
+        WHERE user_id = #{userId}
+          AND notebook_id = #{notebookId}
+          AND is_deleted = FALSE
+        <if test="folderId != null">
+            AND folder_id = #{folderId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title ILIKE CONCAT('%', #{keyword}, '%')
+                 OR content_md ILIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY is_pinned DESC, updated_at DESC
+    </select>
+
+</mapper>

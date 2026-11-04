@@ -8,6 +8,7 @@ import com.notemind.common.exception.ErrorCode;
 import com.notemind.framework.audit.OperationLogRecorder;
 import com.notemind.framework.audit.SysOperationLog;
 import com.notemind.framework.config.AuthProperties;
+import com.notemind.note.mapper.NoteNotebookMapper;
 import com.notemind.user.entity.SysUser;
 import com.notemind.user.mapper.SysUserMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +52,8 @@ class AuthServiceImplAuditTest {
                 tokenService,
                 mock(LoginAttemptStore.class),
                 new AuthProperties(),
-                recorder);
+                recorder,
+                mock(NoteNotebookMapper.class));
     }
 
     /** 取出本次唯一写入的那条审计 */
