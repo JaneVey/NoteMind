@@ -32,12 +32,7 @@ export interface Folder {
   updatedAt: IsoDateTime
 }
 
-/**
- * 笔记（数据库 `note`）。
- *
- * <p>正文用 `contentMd`，与数据库列 `content_md`、Java 实体 `contentMd` 端到端同名 ——
- * 同一概念在 DB / Java / 前端各叫各的，读代码要做脑内映射，改代码容易漏改。
- */
+/** 笔记详情（数据库 `note`），正文用 `contentMd` */
 export interface Note {
   id: Id
   userId: Id
@@ -46,7 +41,26 @@ export interface Note {
   title: string
   contentMd: string
   wordCount: number
-  isPinned: boolean
+  pinned: boolean
+  createdAt: IsoDateTime
+  updatedAt: IsoDateTime
+}
+
+/**
+ * 笔记列表项。
+ *
+ * <p>列表接口不返回正文，只给前 200 个字符的 `excerpt` —— 一本几十万字的笔记
+ * 没必要为了显示两行摘要把全文传过来。
+ */
+export interface NoteListItem {
+  id: Id
+  userId: Id
+  notebookId: Id
+  folderId: Id | null
+  title: string
+  excerpt: string | null
+  wordCount: number
+  pinned: boolean
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
 }
@@ -60,13 +74,37 @@ export interface NoteLink {
   createdAt: IsoDateTime
 }
 
-/** 新建/更新笔记的请求体 */
-export interface SaveNoteRequest {
-  notebookId?: Id
+export interface CreateNoteRequest {
+  notebookId: Id
   folderId?: Id | null
   title?: string
   contentMd?: string
-  isPinned?: boolean
+}
+
+/** 部分更新；移动文件夹走 `moveNote`，不在这里传 folderId */
+export interface UpdateNoteRequest {
+  title?: string
+  contentMd?: string
+  pinned?: boolean
+}
+
+export interface MoveNoteRequest {
+  notebookId: Id
+  folderId: Id | null
+}
+
+export interface NotebookPayload {
+  name: string
+  description?: string | null
+  icon?: string | null
+  sortOrder?: number
+}
+
+export interface FolderPayload {
+  notebookId: Id
+  parentId?: Id | null
+  name: string
+  sortOrder?: number
 }
 
 /** 知识图谱节点（由笔记与链接推导，非数据库表） */

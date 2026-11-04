@@ -27,7 +27,7 @@
       <button class="icon-button" title="新建笔记" @click="emit('create-note')">
         <SquarePen class="h-[19px] w-[19px]" />
       </button>
-      <button class="icon-button" title="新建文件夹">
+      <button class="icon-button" title="新建文件夹" @click="emit('create-folder')">
         <FolderPlus class="h-[19px] w-[19px]" />
       </button>
       <div ref="sortMenuRef" class="relative">
@@ -71,6 +71,8 @@
           :collapsed-folder-ids="collapsedFolders"
           @select-note="emit('select-note', $event)"
           @toggle-folder="toggleFolder"
+          @delete-note="emit('delete-note', $event)"
+          @delete-folder="emit('delete-folder', $event)"
         />
       </template>
 
@@ -154,9 +156,34 @@
       />
     </section>
 
-    <footer v-if="sideTab !== 'search'" class="flex h-11 shrink-0 items-center border-t border-zinc-200 px-4 text-xs text-zinc-400">
-      {{ notes.length }} 篇笔记 · {{ folders.length }} 个文件夹
-    </footer>
+    <div class="notebook-switcher">
+      <div ref="notebookMenuRef" class="relative w-full">
+        <button class="notebook-trigger" title="切换笔记本" @click="toggleNotebookMenu">
+          <NotebookIcon class="h-4 w-4 shrink-0 text-zinc-500" />
+          <span class="truncate">{{ currentNotebookName }}</span>
+          <ChevronsUpDown class="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
+        </button>
+        <div v-if="showNotebookMenu" class="notebook-menu">
+          <p class="notebook-menu-title">切换笔记本</p>
+          <button
+            v-for="notebook in notebooks"
+            :key="notebook.id"
+            class="notebook-menu-row"
+            :class="notebook.id === currentNotebookId ? 'notebook-menu-row-active' : ''"
+            @click="selectNotebook(notebook.id)"
+          >
+            <NotebookIcon class="h-4 w-4 shrink-0" />
+            <span class="min-w-0 flex-1 truncate text-left">{{ notebook.name }}</span>
+            <Check v-if="notebook.id === currentNotebookId" class="h-4 w-4 shrink-0" />
+          </button>
+          <div class="notebook-menu-divider" />
+          <button class="notebook-menu-create" @click="openNotebookManager">
+            <Settings2 class="h-4 w-4" />
+            管理笔记本…
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="side-panel-resizer" title="拖拽调整宽度" @mousedown.prevent="emit('resize-start', $event)" />
   </aside>
 </template>
@@ -164,11 +191,13 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import {
-  ArrowUpDown, Check, ChevronDown, ChevronUp, Clock3, Folder, FolderPlus,
-  ListTree, NotepadText, PanelLeftClose, PanelTop, Search, SquarePen,
+  ArrowUpDown, Check, ChevronDown, ChevronUp, ChevronsUpDown, Clock3, Folder, FolderPlus,
+  ListTree, Notebook as NotebookIcon, NotepadText, PanelLeftClose, PanelTop, Search,
+  Settings2, SquarePen,
 } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
+import type { Notebook } from '@/types/note'
 import NotebookSearchPanel from './NotebookSearchPanel.vue'
 import NotebookTree from './NotebookTree.vue'
 import { compareNotesBy, filterFolderNotes, findFolderName, sortOptions } from './noteList'
@@ -189,6 +218,8 @@ const props = defineProps<{
   width: number
   notes: NotebookNote[]
   folders: NotebookFolder[]
+  notebooks: Notebook[]
+  currentNotebookId: Id | null
   activeNoteId: Id
   activeNoteFolderId: Id | null
 }>()
@@ -199,6 +230,11 @@ const emit = defineEmits<{
   'select-note': [noteId: Id]
   'open-search-result': [noteId: Id]
   'create-note': []
+  'create-folder': []
+  'delete-note': [noteId: Id]
+  'delete-folder': [folderId: Id]
+  'select-notebook': [notebookId: Id]
+  'manage-notebooks': []
 }>()
 
 const sideTab = ref<SideTab>('folders')
@@ -208,6 +244,8 @@ const recentFolderFilter = ref<'all' | Id>('all')
 const recentSortOption = ref<SortOption>('updatedDesc')
 
 // 三个下拉菜单：统一用 useDropdown 处理开关与点击外部关闭
+const notebookMenuRef = ref<HTMLElement | null>(null)
+const { isOpen: showNotebookMenu, toggle: toggleNotebookMenu, close: closeNotebookMenu } = useDropdown(notebookMenuRef)
 const sortMenuRef = ref<HTMLElement | null>(null)
 const { isOpen: showSortMenu, toggle: toggleSortMenu, close: closeSortMenu } = useDropdown(sortMenuRef)
 const recentFilterMenuRef = ref<HTMLElement | null>(null)
@@ -222,6 +260,20 @@ const sideTabs = [
 ] as const
 
 const recentGroupLabels: RecentGroupLabel[] = ['今天', '过去 7 天', '过去 30 天']
+
+const currentNotebookName = computed(
+  () => props.notebooks.find((notebook) => notebook.id === props.currentNotebookId)?.name ?? '未选择笔记本',
+)
+
+function selectNotebook(notebookId: Id): void {
+  closeNotebookMenu()
+  emit('select-notebook', notebookId)
+}
+
+function openNotebookManager(): void {
+  closeNotebookMenu()
+  emit('manage-notebooks')
+}
 
 const allFoldersCollapsed = computed(() => props.folders.length > 0 && props.folders.every((folder) => collapsedFolders.value.includes(folder.id)))
 const folderGroups = computed<FolderGroup[]>(() => props.folders.map((folder) => ({ folder, notes: notesInFolder(folder.id) })))
@@ -301,6 +353,17 @@ function selectRecentSortOption(option: SortOption): void {
 .side-tab, .icon-button { height: 30px; width: 30px; }
 .side-tab:hover, .icon-button:hover { background: #f0f0ee; color: #27272a; }
 .side-tab-active { background: var(--mint); color: #247456; }
+.notebook-switcher { flex-shrink: 0; border-top: 1px solid #e4e4e7; padding: 6px 8px; }
+.notebook-trigger { display: flex; width: 100%; align-items: center; gap: 7px; border-radius: 6px; padding: 7px 8px; text-align: left; font-size: 13px; color: #3f3f46; }
+.notebook-trigger:hover { background: #f2f2f0; }
+.notebook-menu { position: absolute; z-index: 46; bottom: calc(100% + 6px); left: 0; width: 250px; overflow: hidden; border: 1px solid #e2e2e2; border-radius: 10px; background: #fff; padding: 5px; box-shadow: 0 10px 26px rgba(24, 24, 27, .14); }
+.notebook-menu-title { padding: 5px 9px 4px; font-size: 11px; color: #a1a1aa; }
+.notebook-menu-row { display: flex; width: 100%; align-items: center; gap: 7px; border-radius: 6px; padding: 8px 9px; text-align: left; font-size: 13px; color: #3f3f46; }
+.notebook-menu-row:hover, .notebook-menu-row-active { background: #f3f7f5; }
+.notebook-menu-row-active { color: #1f7253; font-weight: 600; }
+.notebook-menu-divider { height: 1px; margin: 5px 4px; background: #e9e9e7; }
+.notebook-menu-create { display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px 9px; text-align: left; font-size: 13px; color: #3f3f46; }
+.notebook-menu-create:hover { background: #f3f3f1; }
 .file-action-bar { display: flex; height: 54px; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px; border-bottom: 1px solid #f0f0ee; }
 .file-action-active { background: #e9e9e7; color: #27272a; }
 .sort-menu { position: absolute; z-index: 45; top: calc(100% + 7px); left: -10px; width: 224px; overflow: hidden; border: 1px solid #e2e2e2; border-radius: 8px; background: #fff; padding: 5px 0; box-shadow: 0 10px 26px rgba(24, 24, 27, .14); }
