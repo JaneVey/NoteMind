@@ -1,7 +1,7 @@
 import request from './request'
 import type { Id } from '@/types/common'
 import type {
-  CreateNoteRequest, MoveNoteRequest, Note, NoteListItem, UpdateNoteRequest,
+  CreateNoteRequest, MoveNoteRequest, Note, NoteListItem, NoteRef, UpdateNoteRequest,
 } from '@/types/note'
 
 export function getNotes(
@@ -36,4 +36,12 @@ export function deleteNote(id: Id): Promise<void> {
 
 export function moveNote(id: Id, data: MoveNoteRequest): Promise<Note> {
   return request.post(`/notes/${id}/move`, data)
+}
+
+export function getNoteLinks(id: Id): Promise<NoteRef[]> {
+  return request.get(`/notes/${id}/links`)
+}
+
+export function getNoteBacklinks(id: Id): Promise<NoteRef[]> {
+  return request.get(`/notes/${id}/backlinks`)
 }

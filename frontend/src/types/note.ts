@@ -65,6 +65,12 @@ export interface NoteListItem {
   updatedAt: IsoDateTime
 }
 
+/** 链接/反链指向的笔记，右侧面板只需要 id 与标题 */
+export interface NoteRef {
+  id: Id
+  title: string
+}
+
 /** 双向链接（数据库 `note_link`），由 `[[笔记名]]` 解析产生 */
 export interface NoteLink {
   id: Id

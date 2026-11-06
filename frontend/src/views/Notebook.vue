@@ -12,13 +12,16 @@
       :current-notebook-id="noteStore.currentNotebookId"
       :active-note-id="activeNoteId ?? ''"
       :active-note-folder-id="activeNoteFolderId"
+      :selected-folder-id="selectedFolderId"
       @resize-start="startSidePanelResize"
       @select-note="selectNote"
       @open-search-result="openSearchResult"
       @create-note="createNote"
       @create-folder="openCreateFolder"
-      @delete-note="removeNote"
-      @delete-folder="removeFolder"
+      @select-folder="selectFolder"
+      @drop-note="handleDropNote"
+      @note-action="handleNoteAction"
+      @folder-action="handleFolderAction"
       @select-notebook="switchNotebook"
       @manage-notebooks="openNotebookManager"
     />
@@ -62,6 +65,20 @@
       </span>
     </footer>
   </div>
+
+  <MoveNoteDialog
+    v-model:visible="showMoveFolderDialog"
+    :folders="folderMoveOptions"
+    :current-folder-id="movingFolder?.parentId ?? null"
+    @confirm="confirmMoveFolder"
+  />
+
+  <MoveNoteDialog
+    v-model:visible="showMoveDialog"
+    :folders="moveFolderOptions"
+    :current-folder-id="movingNote?.folderId ?? null"
+    @confirm="confirmMoveNote"
+  />
 
   <NotebookCreateDialog
     v-model:visible="showCreateNotebookDialog"
@@ -160,13 +177,15 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/authStore'
 import { useNoteStore } from '@/stores/noteStore'
 import type { Id } from '@/types/common'
-import type { NoteListItem, Notebook } from '@/types/note'
+import type { NoteListItem, NoteRef, Notebook } from '@/types/note'
 import { formatDate, formatRelativeTime } from '@/utils/format'
 import NoteAiPanel from './notebook/NoteAiPanel.vue'
 import NoteEditor from './notebook/NoteEditor.vue'
+import MoveNoteDialog from './notebook/MoveNoteDialog.vue'
 import NotebookCreateDialog from './notebook/NotebookCreateDialog.vue'
 import NotebookGlyph from './notebook/NotebookGlyph.vue'
 import NotebookSidebar from './notebook/NotebookSidebar.vue'
+import type { ItemAction, MoveFolderOption } from './notebook/types'
 import type {
   NotebookFolder, NotebookNote, RecentGroupLabel, ViewMode,
 } from './notebook/types'
@@ -198,6 +217,7 @@ const isSidePanelResizing = ref(false)
 const isRightPanelResizing = ref(false)
 const viewMode = ref<ViewMode>('writing')
 const activeNoteId = ref<Id | null>(null)
+const selectedFolderId = ref<Id | null>(null)
 const noteTitle = ref('')
 const noteContent = ref('')
 const isSynced = ref(true)
@@ -213,14 +233,18 @@ const { isOpen: showStatusModeMenu, toggle: toggleStatusModeMenu, close: closeSt
 
 const navNotes = computed<NotebookNote[]>(() => noteStore.notes.map(toNavNote))
 const navFolders = computed<NotebookFolder[]>(
-  () => noteStore.folders.map((folder) => ({ id: folder.id, name: folder.name })),
+  () => noteStore.folders.map((folder) => ({
+    id: folder.id,
+    name: folder.name,
+    parentId: folder.parentId,
+  })),
 )
 const activeNavNote = computed(
   () => navNotes.value.find((note) => note.id === activeNoteId.value) ?? null,
 )
 const activeNoteFolderId = computed(() => activeNavNote.value?.folderId ?? null)
-const backlinkNotes = computed<NotebookNote[]>(() => [])
-const outgoingNotes = computed<NotebookNote[]>(() => [])
+const backlinkNotes = computed<NoteRef[]>(() => noteStore.noteBacklinks)
+const outgoingNotes = computed<NoteRef[]>(() => noteStore.noteLinks)
 const wikiLinkTargetTitle = computed(
   () => navNotes.value.find((note) => note.id !== activeNoteId.value)?.title ?? null,
 )
@@ -271,7 +295,7 @@ async function openSearchResult(noteId: Id): Promise<void> {
 
 async function createNote(): Promise<void> {
   await flushSave()
-  const note = await noteStore.createNote(null)
+  const note = await noteStore.createNote(selectedFolderId.value)
   if (!note) {
     toast.error(noteStore.error ?? '创建笔记失败')
     return
@@ -332,6 +356,53 @@ async function flushSave(): Promise<void> {
 const showNotebookManager = ref(false)
 const showCreateNotebookDialog = ref(false)
 const creatingNotebook = ref(false)
+const showMoveDialog = ref(false)
+const movingNoteId = ref<Id | null>(null)
+const showMoveFolderDialog = ref(false)
+const movingFolderId = ref<Id | null>(null)
+const movingNote = computed(
+  () => noteStore.notes.find((note) => note.id === movingNoteId.value) ?? null,
+)
+const movingFolder = computed(
+  () => noteStore.folders.find((folder) => folder.id === movingFolderId.value) ?? null,
+)
+const allFolderOptions = computed<MoveFolderOption[]>(() => {
+  const byParent = new Map<Id | null, typeof noteStore.folders>()
+  for (const folder of noteStore.folders) {
+    const key = folder.parentId ?? null
+    const list = byParent.get(key) ?? []
+    list.push(folder)
+    byParent.set(key, list)
+  }
+  const options: MoveFolderOption[] = [{ id: null, path: '未分类（根目录）' }]
+  const walk = (parentId: Id | null, prefix: string): void => {
+    for (const folder of byParent.get(parentId) ?? []) {
+      const path = prefix ? `${prefix} / ${folder.name}` : folder.name
+      options.push({ id: folder.id, path })
+      walk(folder.id, path)
+    }
+  }
+  walk(null, '')
+  return options
+})
+const moveFolderOptions = computed<MoveFolderOption[]>(() => allFolderOptions.value)
+const folderMoveOptions = computed<MoveFolderOption[]>(() => {
+  const movingId = movingFolderId.value
+  if (movingId === null) return allFolderOptions.value
+
+  const excluded = new Set<Id>([movingId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const folder of noteStore.folders) {
+      if (folder.parentId !== null && excluded.has(folder.parentId) && !excluded.has(folder.id)) {
+        excluded.add(folder.id)
+        changed = true
+      }
+    }
+  }
+  return allFolderOptions.value.filter((option) => option.id === null || !excluded.has(option.id))
+})
 const selectedManagerNotebookId = ref<Id | null>(null)
 const selectedManagerNotebook = computed(
   () => noteStore.notebooks.find((notebook) => notebook.id === selectedManagerNotebookId.value) ?? null,
@@ -376,6 +447,7 @@ async function selectFirstNote(): Promise<void> {
 async function switchNotebook(notebookId: Id): Promise<void> {
   await flushSave()
   await noteStore.selectNotebook(notebookId)
+  selectedFolderId.value = null
   resetActiveNote()
   await selectFirstNote()
 }
@@ -465,6 +537,7 @@ async function removeNotebook(notebook: Notebook): Promise<void> {
     selectedManagerNotebookId.value = noteStore.currentNotebookId
   }
   if (wasCurrent) {
+    selectedFolderId.value = null
     resetActiveNote()
     await selectFirstNote()
   }
@@ -473,7 +546,7 @@ async function removeNotebook(notebook: Notebook): Promise<void> {
 async function openCreateFolder(): Promise<void> {
   const name = await inputDialog.open({ title: '新建文件夹', placeholder: '文件夹名称' })
   if (name === null) return
-  const folder = await noteStore.createFolder(name)
+  const folder = await noteStore.createFolder(name, selectedFolderId.value)
   if (!folder) {
     toast.error(noteStore.error ?? '创建失败')
     return
@@ -504,20 +577,166 @@ async function removeNote(noteId: Id): Promise<void> {
 }
 
 async function removeFolder(folderId: Id): Promise<void> {
+  const folder = noteStore.folders.find((item) => item.id === folderId)
+  if (!folder) return
+
   const confirmed = await confirm({
     title: '删除文件夹',
-    message: '文件夹中的笔记会回到未分类。',
+    message: `确定删除「${folder.name}」？`,
     confirmText: '删除',
     danger: true,
   })
   if (!confirmed) return
 
-  const ok = await noteStore.deleteFolder(folderId)
+  let ok = await noteStore.deleteFolder(folderId)
+  if (!ok && noteStore.errorCode === 3005) {
+    const forceConfirmed = await confirm({
+      title: '删除全部内容',
+      message: `「${folder.name}」下还有笔记或子文件夹。继续删除会连同里面的全部内容一起删除。`,
+      confirmText: '我确认删除全部',
+      danger: true,
+      severe: true,
+    })
+    if (!forceConfirmed) return
+    ok = await noteStore.deleteFolder(folderId, true)
+  }
   if (!ok) {
     toast.error(noteStore.error ?? '删除失败')
     return
   }
   toast.success('文件夹已删除')
+
+  if (selectedFolderId.value !== null
+      && !noteStore.folders.some((item) => item.id === selectedFolderId.value)) {
+    selectedFolderId.value = null
+  }
+  if (activeNoteId.value !== null
+      && !noteStore.notes.some((item) => item.id === activeNoteId.value)) {
+    resetActiveNote()
+    await selectFirstNote()
+  }
+}
+
+function selectFolder(folderId: Id | null): void {
+  selectedFolderId.value = folderId
+}
+
+async function handleDropNote(payload: { noteId: Id; folderId: Id | null }): Promise<void> {
+  if (noteStore.currentNotebookId === null) return
+  const ok = await noteStore.moveNote(payload.noteId, {
+    notebookId: noteStore.currentNotebookId,
+    folderId: payload.folderId,
+  })
+  if (!ok) {
+    toast.error(noteStore.error ?? '移动失败')
+    return
+  }
+  toast.success(payload.folderId === null ? '已移到未分类' : '已移动到文件夹')
+}
+
+function openMoveDialog(noteId: Id): void {
+  movingNoteId.value = noteId
+  showMoveDialog.value = true
+}
+
+async function confirmMoveNote(folderId: Id | null): Promise<void> {
+  const noteId = movingNoteId.value
+  showMoveDialog.value = false
+  if (noteId === null || noteStore.currentNotebookId === null) return
+  const ok = await noteStore.moveNote(noteId, {
+    notebookId: noteStore.currentNotebookId,
+    folderId,
+  })
+  movingNoteId.value = null
+  if (!ok) {
+    toast.error(noteStore.error ?? '移动失败')
+    return
+  }
+  toast.success(folderId === null ? '已移到未分类' : '已移动到文件夹')
+}
+
+async function handleNoteAction(action: ItemAction, noteId: Id): Promise<void> {
+  if (action === 'move') {
+    openMoveDialog(noteId)
+    return
+  }
+  if (action === 'rename') {
+    await renameNote(noteId)
+    return
+  }
+  if (action === 'delete') {
+    await removeNote(noteId)
+  }
+}
+
+async function handleFolderAction(action: ItemAction, folderId: Id): Promise<void> {
+  if (action === 'move') {
+    movingFolderId.value = folderId
+    showMoveFolderDialog.value = true
+    return
+  }
+  if (action === 'rename') {
+    await renameFolder(folderId)
+    return
+  }
+  if (action === 'delete') {
+    await removeFolder(folderId)
+  }
+}
+
+async function confirmMoveFolder(parentId: Id | null): Promise<void> {
+  const folderId = movingFolderId.value
+  showMoveFolderDialog.value = false
+  if (folderId === null) return
+  const ok = await noteStore.moveFolder(folderId, parentId)
+  movingFolderId.value = null
+  if (!ok) {
+    toast.error(noteStore.error ?? '移动失败')
+    return
+  }
+  toast.success(parentId === null ? '已移到根目录' : '已移动到文件夹')
+}
+
+async function renameNote(noteId: Id): Promise<void> {
+  const note = noteStore.notes.find((item) => item.id === noteId)
+  if (!note) return
+  const title = await inputDialog.open({
+    title: '重命名笔记',
+    placeholder: '笔记标题',
+    initialValue: note.title,
+  })
+  if (title === null) return
+
+  const ok = await noteStore.saveNote(noteId, { title })
+  if (!ok) {
+    toast.error(noteStore.error ?? '重命名失败')
+    return
+  }
+  if (activeNoteId.value === noteId) {
+    noteTitle.value = title
+  }
+  toast.success('笔记已重命名')
+}
+
+async function renameFolder(folderId: Id): Promise<void> {
+  const folder = noteStore.folders.find((item) => item.id === folderId)
+  if (!folder) return
+  const name = await inputDialog.open({
+    title: '重命名文件夹',
+    placeholder: '文件夹名称',
+    initialValue: folder.name,
+  })
+  if (name === null) return
+
+  const ok = await noteStore.renameFolder(folderId, {
+    notebookId: folder.notebookId,
+    name,
+  })
+  if (!ok) {
+    toast.error(noteStore.error ?? '重命名失败')
+    return
+  }
+  toast.success('文件夹已重命名')
 }
 
 let stopSideResize: (() => void) | null = null

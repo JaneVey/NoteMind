@@ -92,7 +92,8 @@ import {
 } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
-import type { ConversationHistoryItem, ConversationMessage, ConversationSession, NotebookNote } from './types'
+import type { NoteRef } from '@/types/note'
+import type { ConversationHistoryItem, ConversationMessage, ConversationSession } from './types'
 
 /**
  * 右侧上下文面板：反向链接 / 出链 / AI 助手三个 Tab。
@@ -105,8 +106,8 @@ defineProps<{
   width: number
   /** 当前笔记标题（AI 上下文提示 + 反链标题都用它） */
   noteTitle: string
-  backlinkNotes: NotebookNote[]
-  outgoingNotes: NotebookNote[]
+  backlinkNotes: NoteRef[]
+  outgoingNotes: NoteRef[]
 }>()
 
 const emit = defineEmits<{

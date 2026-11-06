@@ -3,10 +3,11 @@ import { defineStore } from 'pinia'
 import { ApiError } from '@/api/request'
 import {
   createFolder as createFolderApi, deleteFolder as deleteFolderApi,
-  getFolders as fetchFoldersApi, updateFolder as updateFolderApi,
+  getFolders as fetchFoldersApi, moveFolder as moveFolderApi, updateFolder as updateFolderApi,
 } from '@/api/folder'
 import {
   createNote as createNoteApi, deleteNote as deleteNoteApi, getNote as fetchNoteApi,
+  getNoteBacklinks as fetchNoteBacklinksApi, getNoteLinks as fetchNoteLinksApi,
   getNotes as fetchNotesApi, moveNote as moveNoteApi, updateNote as updateNoteApi,
 } from '@/api/note'
 import {
@@ -15,7 +16,7 @@ import {
 } from '@/api/notebook'
 import type { Id } from '@/types/common'
 import type {
-  Folder, FolderPayload, MoveNoteRequest, Note, NoteListItem, Notebook, NotebookPayload,
+  Folder, FolderPayload, MoveNoteRequest, Note, NoteListItem, NoteRef, Notebook, NotebookPayload,
   UpdateNoteRequest, UpdateNotebookRequest,
 } from '@/types/note'
 
@@ -25,6 +26,8 @@ export const useNoteStore = defineStore('note', () => {
   const folders = ref<Folder[]>([])
   const notes = ref<NoteListItem[]>([])
   const currentNote = ref<Note | null>(null)
+  const noteLinks = ref<NoteRef[]>([])
+  const noteBacklinks = ref<NoteRef[]>([])
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -79,6 +82,8 @@ export const useNoteStore = defineStore('note', () => {
     currentNote.value = null
     notes.value = []
     folders.value = []
+    noteLinks.value = []
+    noteBacklinks.value = []
     await loadNotebookData()
   }
 
@@ -125,10 +130,14 @@ export const useNoteStore = defineStore('note', () => {
     }
   }
 
-  async function createFolder(name: string): Promise<Folder | null> {
+  async function createFolder(name: string, parentId: Id | null = null): Promise<Folder | null> {
     if (currentNotebookId.value === null) return null
     try {
-      const folder = await createFolderApi({ notebookId: currentNotebookId.value, name })
+      const folder = await createFolderApi({
+        notebookId: currentNotebookId.value,
+        parentId,
+        name,
+      })
       folders.value.push(folder)
       return folder
     } catch (cause) {
@@ -149,9 +158,22 @@ export const useNoteStore = defineStore('note', () => {
     }
   }
 
-  async function deleteFolder(id: Id): Promise<boolean> {
+  async function moveFolder(id: Id, parentId: Id | null): Promise<boolean> {
     try {
-      await deleteFolderApi(id)
+      const updated = await moveFolderApi(id, parentId)
+      const index = folders.value.findIndex((item) => item.id === id)
+      if (index >= 0) folders.value[index] = updated
+      return true
+    } catch (cause) {
+      fail('移动文件夹', cause)
+      return false
+    }
+  }
+
+  async function deleteFolder(id: Id, force = false): Promise<boolean> {
+    try {
+      await deleteFolderApi(id, force)
+      errorCode.value = null
       folders.value = folders.value.filter((item) => item.id !== id)
       await loadNotebookData()
       return true
@@ -175,11 +197,25 @@ export const useNoteStore = defineStore('note', () => {
 
   async function openNote(id: Id): Promise<Note | null> {
     try {
-      currentNote.value = await fetchNoteApi(id)
-      return currentNote.value
+      const [note] = await Promise.all([fetchNoteApi(id), loadLinks(id)])
+      currentNote.value = note
+      return note
     } catch (cause) {
       fail('打开笔记', cause)
       return null
+    }
+  }
+
+  async function loadLinks(id: Id): Promise<void> {
+    try {
+      const [outgoing, backlinks] = await Promise.all([
+        fetchNoteLinksApi(id),
+        fetchNoteBacklinksApi(id),
+      ])
+      noteLinks.value = outgoing
+      noteBacklinks.value = backlinks
+    } catch (cause) {
+      fail('加载链接', cause)
     }
   }
 
@@ -217,6 +253,10 @@ export const useNoteStore = defineStore('note', () => {
           excerpt: updated.contentMd.slice(0, 200),
         }
       }
+      // 正文变化会影响 [[标题]] 解析，链接由后端重建后重新拉取
+      if (data.contentMd !== undefined) {
+        void loadLinks(id)
+      }
       return true
     } catch (cause) {
       fail('保存笔记', cause)
@@ -232,6 +272,8 @@ export const useNoteStore = defineStore('note', () => {
       notes.value = notes.value.filter((item) => item.id !== id)
       if (currentNote.value?.id === id) {
         currentNote.value = null
+        noteLinks.value = []
+        noteBacklinks.value = []
       }
       return true
     } catch (cause) {
@@ -257,6 +299,8 @@ export const useNoteStore = defineStore('note', () => {
     folders.value = []
     notes.value = []
     currentNote.value = null
+    noteLinks.value = []
+    noteBacklinks.value = []
     error.value = null
   }
 
@@ -266,6 +310,8 @@ export const useNoteStore = defineStore('note', () => {
     folders,
     notes,
     currentNote,
+    noteLinks,
+    noteBacklinks,
     loading,
     saving,
     error,
@@ -278,10 +324,12 @@ export const useNoteStore = defineStore('note', () => {
     updateNotebook,
     deleteNotebook,
     createFolder,
+    moveFolder,
     renameFolder,
     deleteFolder,
     fetchNotes,
     openNote,
+    loadLinks,
     createNote,
     saveNote,
     deleteNote,

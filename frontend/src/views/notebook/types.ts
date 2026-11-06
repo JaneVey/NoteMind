@@ -44,6 +44,23 @@ export interface NotebookNote {
 export interface NotebookFolder {
   id: Id
   name: string
+  parentId: Id | null
+}
+
+/** 递归目录树的节点：文件夹 + 子文件夹 + 直属笔记（已排序） */
+export interface FolderNode {
+  folder: NotebookFolder
+  children: FolderNode[]
+  notes: NotebookNote[]
+}
+
+/** 选中项右下角菜单的动作 */
+export type ItemAction = 'move' | 'merge' | 'rename' | 'delete'
+
+/** 移动弹窗里的文件夹选项，path 是带上层级的展示文本 */
+export interface MoveFolderOption {
+  id: Id | null
+  path: string
 }
 
 /** 目录树里的一组：文件夹 + 其下笔记（已排序） */

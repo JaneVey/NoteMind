@@ -65,14 +65,17 @@
         </div>
 
         <NotebookTree
-          :folder-groups="folderGroups"
+          :nodes="treeNodes"
           :uncategorized-notes="uncategorizedNotes"
           :active-note-id="activeNoteId"
+          :selected-folder-id="selectedFolderId"
           :collapsed-folder-ids="collapsedFolders"
           @select-note="emit('select-note', $event)"
+          @select-folder="emit('select-folder', $event)"
           @toggle-folder="toggleFolder"
-          @delete-note="emit('delete-note', $event)"
-          @delete-folder="emit('delete-folder', $event)"
+          @drop-note="emit('drop-note', $event)"
+          @note-action="forwardNoteAction"
+          @folder-action="forwardFolderAction"
         />
       </template>
 
@@ -207,7 +210,7 @@ import NotebookSearchPanel from './NotebookSearchPanel.vue'
 import NotebookTree from './NotebookTree.vue'
 import { compareNotesBy, filterFolderNotes, findFolderName, sortOptions } from './noteList'
 import type {
-  FolderGroup, NotebookFolder, NotebookNote, RecentGroupLabel, SideTab, SortOption,
+  FolderNode, ItemAction, NotebookFolder, NotebookNote, RecentGroupLabel, SideTab, SortOption,
 } from './types'
 
 /**
@@ -227,6 +230,7 @@ const props = defineProps<{
   currentNotebookId: Id | null
   activeNoteId: Id
   activeNoteFolderId: Id | null
+  selectedFolderId: Id | null
 }>()
 
 const emit = defineEmits<{
@@ -236,8 +240,10 @@ const emit = defineEmits<{
   'open-search-result': [noteId: Id]
   'create-note': []
   'create-folder': []
-  'delete-note': [noteId: Id]
-  'delete-folder': [folderId: Id]
+  'select-folder': [folderId: Id | null]
+  'drop-note': [payload: { noteId: Id; folderId: Id | null }]
+  'note-action': [action: ItemAction, noteId: Id]
+  'folder-action': [action: ItemAction, folderId: Id]
   'select-notebook': [notebookId: Id]
   'manage-notebooks': []
 }>()
@@ -283,7 +289,22 @@ function openNotebookManager(): void {
 }
 
 const allFoldersCollapsed = computed(() => props.folders.length > 0 && props.folders.every((folder) => collapsedFolders.value.includes(folder.id)))
-const folderGroups = computed<FolderGroup[]>(() => props.folders.map((folder) => ({ folder, notes: notesInFolder(folder.id) })))
+const treeNodes = computed<FolderNode[]>(() => {
+  const byParent = new Map<Id | null, NotebookFolder[]>()
+  for (const folder of props.folders) {
+    const key = folder.parentId ?? null
+    const list = byParent.get(key) ?? []
+    list.push(folder)
+    byParent.set(key, list)
+  }
+  const build = (parentId: Id | null): FolderNode[] =>
+    (byParent.get(parentId) ?? []).map((folder) => ({
+      folder,
+      children: build(folder.id),
+      notes: notesInFolder(folder.id),
+    }))
+  return build(null)
+})
 const uncategorizedNotes = computed(() => notesInFolder(null))
 const recentFilterLabel = computed(() => recentFolderFilter.value === 'all'
   ? '全部'
@@ -316,6 +337,14 @@ function toggleFolder(folderId: Id): void {
   collapsedFolders.value = collapsedFolders.value.includes(folderId)
     ? collapsedFolders.value.filter((id) => id !== folderId)
     : [...collapsedFolders.value, folderId]
+}
+
+function forwardNoteAction(action: ItemAction, noteId: Id): void {
+  emit('note-action', action, noteId)
+}
+
+function forwardFolderAction(action: ItemAction, folderId: Id): void {
+  emit('folder-action', action, folderId)
 }
 
 function toggleAllFolders(): void {

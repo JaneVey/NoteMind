@@ -14,6 +14,10 @@ export function updateFolder(id: Id, data: Partial<FolderPayload>): Promise<Fold
   return request.put(`/folders/${id}`, data)
 }
 
-export function deleteFolder(id: Id): Promise<void> {
-  return request.delete(`/folders/${id}`)
+export function moveFolder(id: Id, parentId: Id | null): Promise<Folder> {
+  return request.post(`/folders/${id}/move`, { parentId })
+}
+
+export function deleteFolder(id: Id, force = false): Promise<void> {
+  return request.delete(`/folders/${id}`, { params: force ? { force: true } : undefined })
 }
