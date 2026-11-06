@@ -159,7 +159,9 @@
     <div class="notebook-switcher">
       <div ref="notebookMenuRef" class="relative w-full">
         <button class="notebook-trigger" title="切换笔记本" @click="toggleNotebookMenu">
-          <NotebookIcon class="h-4 w-4 shrink-0 text-zinc-500" />
+          <span class="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded">
+            <NotebookGlyph :icon="currentNotebook?.icon ?? null" />
+          </span>
           <span class="truncate">{{ currentNotebookName }}</span>
           <ChevronsUpDown class="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
         </button>
@@ -172,7 +174,9 @@
             :class="notebook.id === currentNotebookId ? 'notebook-menu-row-active' : ''"
             @click="selectNotebook(notebook.id)"
           >
-            <NotebookIcon class="h-4 w-4 shrink-0" />
+            <span class="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded">
+              <NotebookGlyph :icon="notebook.icon" />
+            </span>
             <span class="min-w-0 flex-1 truncate text-left">{{ notebook.name }}</span>
             <Check v-if="notebook.id === currentNotebookId" class="h-4 w-4 shrink-0" />
           </button>
@@ -192,12 +196,13 @@
 import { computed, nextTick, ref } from 'vue'
 import {
   ArrowUpDown, Check, ChevronDown, ChevronUp, ChevronsUpDown, Clock3, Folder, FolderPlus,
-  ListTree, Notebook as NotebookIcon, NotepadText, PanelLeftClose, PanelTop, Search,
+  ListTree, NotepadText, PanelLeftClose, PanelTop, Search,
   Settings2, SquarePen,
 } from 'lucide-vue-next'
 import { useDropdown } from '@/composables/useDropdown'
 import type { Id } from '@/types/common'
 import type { Notebook } from '@/types/note'
+import NotebookGlyph from './NotebookGlyph.vue'
 import NotebookSearchPanel from './NotebookSearchPanel.vue'
 import NotebookTree from './NotebookTree.vue'
 import { compareNotesBy, filterFolderNotes, findFolderName, sortOptions } from './noteList'
@@ -261,9 +266,11 @@ const sideTabs = [
 
 const recentGroupLabels: RecentGroupLabel[] = ['今天', '过去 7 天', '过去 30 天']
 
-const currentNotebookName = computed(
-  () => props.notebooks.find((notebook) => notebook.id === props.currentNotebookId)?.name ?? '未选择笔记本',
+const currentNotebook = computed(
+  () => props.notebooks.find((notebook) => notebook.id === props.currentNotebookId) ?? null,
 )
+
+const currentNotebookName = computed(() => currentNotebook.value?.name ?? '未选择笔记本')
 
 function selectNotebook(notebookId: Id): void {
   closeNotebookMenu()

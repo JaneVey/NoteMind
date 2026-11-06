@@ -16,7 +16,7 @@ import {
 import type { Id } from '@/types/common'
 import type {
   Folder, FolderPayload, MoveNoteRequest, Note, NoteListItem, Notebook, NotebookPayload,
-  UpdateNoteRequest,
+  UpdateNoteRequest, UpdateNotebookRequest,
 } from '@/types/note'
 
 export const useNoteStore = defineStore('note', () => {
@@ -94,7 +94,7 @@ export const useNoteStore = defineStore('note', () => {
     }
   }
 
-  async function updateNotebook(id: Id, payload: NotebookPayload): Promise<boolean> {
+  async function updateNotebook(id: Id, payload: UpdateNotebookRequest): Promise<boolean> {
     try {
       const updated = await updateNotebookApi(id, payload)
       const index = notebooks.value.findIndex((item) => item.id === id)

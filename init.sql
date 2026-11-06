@@ -181,7 +181,7 @@ CREATE TABLE note_notebook (
     user_id     BIGINT       NOT NULL REFERENCES sys_user (id),
     name        VARCHAR(255) NOT NULL,
     description VARCHAR(1000),
-    icon        VARCHAR(50)  NOT NULL DEFAULT '📒',
+    icon        VARCHAR(500) NOT NULL DEFAULT '📒',
     sort_order  INTEGER      NOT NULL DEFAULT 0,
     is_deleted  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.notemind.common.exception.BusinessException;
 import com.notemind.common.exception.ErrorCode;
 import com.notemind.note.dto.SaveNotebookRequest;
+import com.notemind.note.dto.UpdateNotebookRequest;
 import com.notemind.note.entity.Note;
 import com.notemind.note.entity.NoteFolder;
 import com.notemind.note.entity.NoteLink;
@@ -56,18 +57,44 @@ public class NotebookServiceImpl implements NotebookService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public NotebookVO update(Long userId, Long id, SaveNotebookRequest request) {
+    public NotebookVO update(Long userId, Long id, UpdateNotebookRequest request) {
         requireOwned(userId, id);
-        // updateById 会忽略 null 字段，而 PUT 的语义是「描述/图标可以置空」，必须显式 set
-        notebookMapper.update(null, new LambdaUpdateWrapper<NoteNotebook>()
+
+        LambdaUpdateWrapper<NoteNotebook> wrapper = new LambdaUpdateWrapper<NoteNotebook>()
                 .eq(NoteNotebook::getId, id)
-                .eq(NoteNotebook::getUserId, userId)
-                .set(NoteNotebook::getName, request.getName())
-                .set(NoteNotebook::getDescription, request.getDescription())
-                .set(NoteNotebook::getIcon, request.getIcon())
-                .set(NoteNotebook::getSortOrder, request.getSortOrder() == null ? 0 : request.getSortOrder())
-                .set(NoteNotebook::getUpdatedAt, OffsetDateTime.now()));
-        return toVO(notebookMapper.selectById(id));
+                .eq(NoteNotebook::getUserId, userId);
+        boolean changed = false;
+
+        if (request.getName() != null) {
+            if (request.getName().isBlank()) {
+                throw new BusinessException(ErrorCode.PARAM_INVALID, "笔记本名称不能为空");
+            }
+            wrapper.set(NoteNotebook::getName, request.getName().trim());
+            changed = true;
+        }
+        if (request.getDescription() != null) {
+            // 空串是"清空"的显式表达；PATCH 里 null 代表不修改，无法直接传 null
+            wrapper.set(NoteNotebook::getDescription,
+                    request.getDescription().isBlank() ? null : request.getDescription());
+            changed = true;
+        }
+        if (request.getIcon() != null) {
+            wrapper.set(NoteNotebook::getIcon, request.getIcon());
+            changed = true;
+        }
+        if (request.getSortOrder() != null) {
+            wrapper.set(NoteNotebook::getSortOrder, request.getSortOrder());
+            changed = true;
+        }
+        if (changed) {
+            wrapper.set(NoteNotebook::getUpdatedAt, OffsetDateTime.now());
+            notebookMapper.update(null, wrapper);
+        }
+        NoteNotebook updated = notebookMapper.selectById(id);
+        if (updated == null) {
+            throw new BusinessException(ErrorCode.NOTEBOOK_NOT_FOUND);
+        }
+        return toVO(updated);
     }
 
     @Override

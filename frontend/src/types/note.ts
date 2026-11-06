@@ -100,6 +100,14 @@ export interface NotebookPayload {
   sortOrder?: number
 }
 
+/** 局部更新：只传要改的字段，description 传空串表示清空 */
+export interface UpdateNotebookRequest {
+  name?: string
+  description?: string
+  icon?: string
+  sortOrder?: number
+}
+
 export interface FolderPayload {
   notebookId: Id
   parentId?: Id | null

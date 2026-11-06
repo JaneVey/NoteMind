@@ -63,6 +63,12 @@
     </footer>
   </div>
 
+  <NotebookCreateDialog
+    v-model:visible="showCreateNotebookDialog"
+    :submitting="creatingNotebook"
+    @submit="handleCreateNotebook"
+  />
+
   <div v-if="showNotebookManager" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/20" @click.self="showNotebookManager = false">
     <div class="flex h-[440px] w-[680px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl">
       <aside class="flex w-[240px] shrink-0 flex-col border-r border-zinc-200 bg-[#f7f7f6]">
@@ -79,7 +85,9 @@
             @click="selectedManagerNotebookId = notebook.id"
             @dblclick="openNotebookNow(notebook)"
           >
-            <NotebookIcon class="h-4 w-4 shrink-0" />
+            <span class="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded">
+              <NotebookGlyph :icon="notebook.icon" />
+            </span>
             <span class="truncate">{{ notebook.name }}</span>
             <span v-if="notebook.id === noteStore.currentNotebookId" class="manager-badge">当前打开</span>
           </button>
@@ -100,7 +108,7 @@
           <template v-if="selectedManagerNotebook">
             <div class="flex items-center gap-3 pr-10">
               <div class="manager-avatar">
-                <NotebookIcon class="h-5 w-5" />
+                <NotebookGlyph :icon="selectedManagerNotebook.icon" size="lg" />
               </div>
               <div class="min-w-0 flex-1">
                 <h3 class="truncate text-lg font-semibold text-zinc-900">{{ selectedManagerNotebook.name }}</h3>
@@ -156,6 +164,8 @@ import type { NoteListItem, Notebook } from '@/types/note'
 import { formatDate, formatRelativeTime } from '@/utils/format'
 import NoteAiPanel from './notebook/NoteAiPanel.vue'
 import NoteEditor from './notebook/NoteEditor.vue'
+import NotebookCreateDialog from './notebook/NotebookCreateDialog.vue'
+import NotebookGlyph from './notebook/NotebookGlyph.vue'
 import NotebookSidebar from './notebook/NotebookSidebar.vue'
 import type {
   NotebookFolder, NotebookNote, RecentGroupLabel, ViewMode,
@@ -320,6 +330,8 @@ async function flushSave(): Promise<void> {
 }
 
 const showNotebookManager = ref(false)
+const showCreateNotebookDialog = ref(false)
+const creatingNotebook = ref(false)
 const selectedManagerNotebookId = ref<Id | null>(null)
 const selectedManagerNotebook = computed(
   () => noteStore.notebooks.find((notebook) => notebook.id === selectedManagerNotebookId.value) ?? null,
@@ -368,18 +380,26 @@ async function switchNotebook(notebookId: Id): Promise<void> {
   await selectFirstNote()
 }
 
-async function openCreateNotebook(): Promise<void> {
-  const name = await inputDialog.open({ title: '新建笔记本', placeholder: '笔记本名称' })
-  if (name === null) return
-  const notebook = await noteStore.createNotebook({ name })
-  if (!notebook) {
-    toast.error(noteStore.error ?? '创建笔记本失败')
-    return
+function openCreateNotebook(): void {
+  showCreateNotebookDialog.value = true
+}
+
+async function handleCreateNotebook(payload: { name: string; icon: string }): Promise<void> {
+  creatingNotebook.value = true
+  try {
+    const notebook = await noteStore.createNotebook(payload)
+    if (!notebook) {
+      toast.error(noteStore.error ?? '创建笔记本失败')
+      return
+    }
+    toast.success('笔记本已创建')
+    showCreateNotebookDialog.value = false
+    selectedManagerNotebookId.value = notebook.id
+    resetActiveNote()
+    await selectFirstNote()
+  } finally {
+    creatingNotebook.value = false
   }
-  toast.success('笔记本已创建')
-  selectedManagerNotebookId.value = notebook.id
-  resetActiveNote()
-  await selectFirstNote()
 }
 
 async function openRenameNotebook(notebook: Notebook): Promise<void> {
@@ -389,12 +409,7 @@ async function openRenameNotebook(notebook: Notebook): Promise<void> {
     initialValue: notebook.name,
   })
   if (name === null) return
-  const ok = await noteStore.updateNotebook(notebook.id, {
-    name,
-    description: notebook.description,
-    icon: notebook.icon,
-    sortOrder: notebook.sortOrder,
-  })
+  const ok = await noteStore.updateNotebook(notebook.id, { name })
   if (!ok) {
     toast.error(noteStore.error ?? '重命名失败')
     return
@@ -411,12 +426,7 @@ async function openEditDescription(notebook: Notebook): Promise<void> {
     initialValue: notebook.description ?? '',
   })
   if (description === null) return
-  const ok = await noteStore.updateNotebook(notebook.id, {
-    name: notebook.name,
-    description: description || null,
-    icon: notebook.icon,
-    sortOrder: notebook.sortOrder,
-  })
+  const ok = await noteStore.updateNotebook(notebook.id, { description })
   if (!ok) {
     toast.error(noteStore.error ?? '保存描述失败')
     return

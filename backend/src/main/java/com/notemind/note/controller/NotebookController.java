@@ -3,15 +3,16 @@ package com.notemind.note.controller;
 import com.notemind.common.result.Result;
 import com.notemind.framework.security.SecurityUtils;
 import com.notemind.note.dto.SaveNotebookRequest;
+import com.notemind.note.dto.UpdateNotebookRequest;
 import com.notemind.note.service.NotebookService;
 import com.notemind.note.vo.NotebookVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,9 +37,9 @@ public class NotebookController {
         return Result.success(notebookService.create(SecurityUtils.currentUserId(), request));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public Result<NotebookVO> update(@PathVariable Long id,
-                                     @Valid @RequestBody SaveNotebookRequest request) {
+                                     @Valid @RequestBody UpdateNotebookRequest request) {
         return Result.success(notebookService.update(SecurityUtils.currentUserId(), id, request));
     }
 

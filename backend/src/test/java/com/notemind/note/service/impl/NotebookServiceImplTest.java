@@ -3,7 +3,7 @@ package com.notemind.note.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.notemind.common.exception.BusinessException;
-import com.notemind.note.dto.SaveNotebookRequest;
+import com.notemind.note.dto.UpdateNotebookRequest;
 import com.notemind.note.entity.Note;
 import com.notemind.note.entity.NoteFolder;
 import com.notemind.note.entity.NoteLink;
@@ -23,6 +23,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -106,10 +107,36 @@ class NotebookServiceImplTest {
     void updateOtherUsersNotebookIsNotFound() {
         when(notebookMapper.selectOne(any())).thenReturn(null);
 
-        assertThatThrownBy(() -> service.update(USER_ID, 5L, new SaveNotebookRequest()))
+        assertThatThrownBy(() -> service.update(USER_ID, 5L, new UpdateNotebookRequest()))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(3002);
+    }
+
+    @Test
+    @DisplayName("只改描述时不触碰其他字段")
+    void updateDescriptionOnly() {
+        when(notebookMapper.selectOne(any())).thenReturn(existingNotebook());
+        when(notebookMapper.selectById(any())).thenReturn(existingNotebook());
+        UpdateNotebookRequest request = new UpdateNotebookRequest();
+        request.setDescription("新描述");
+
+        service.update(USER_ID, 5L, request);
+
+        verify(notebookMapper).update(isNull(), any());
+    }
+
+    @Test
+    @DisplayName("名称改成空白会被拒绝")
+    void updateRejectsBlankName() {
+        when(notebookMapper.selectOne(any())).thenReturn(existingNotebook());
+        UpdateNotebookRequest request = new UpdateNotebookRequest();
+        request.setName("   ");
+
+        assertThatThrownBy(() -> service.update(USER_ID, 5L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(1001);
     }
 
     private NoteNotebook existingNotebook() {

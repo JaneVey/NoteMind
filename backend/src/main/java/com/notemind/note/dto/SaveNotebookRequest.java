@@ -14,7 +14,7 @@ public class SaveNotebookRequest {
     @Size(max = 1000, message = "描述不能超过 1000 个字符")
     private String description;
 
-    @Size(max = 50, message = "图标不能超过 50 个字符")
+    @Size(max = 500, message = "图标不能超过 500 个字符")
     private String icon;
 
     private Integer sortOrder;
