@@ -3,6 +3,7 @@ package com.notemind.framework.storage;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
+import io.minio.SetBucketPolicyArgs;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +61,17 @@ public class MinioConfig {
                     minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
                     log.info("MinIO bucket '{}' 创建成功（endpoint={}）", bucket, endpoint);
                 }
+                // public/ 下的图片允许匿名读，<img> 可直接加载；其余对象仍保持私有
+                try {
+                    minioClient.setBucketPolicy(SetBucketPolicyArgs.builder()
+                            .bucket(bucket)
+                            .config(publicReadPolicy(bucket))
+                            .build());
+                } catch (Exception e) {
+                    // bucket 本身可用，只是公开读策略没设置成功；上传会成功但图片加载不出来
+                    log.error("MinIO bucket 公开读策略设置失败（endpoint={}），自定义图标可能无法显示。原因: {}",
+                            endpoint, e.getMessage());
+                }
             } catch (Exception e) {
                 // 不中断启动：其它功能仍可用，但文件上传必然失败
                 log.error("MinIO 不可用（endpoint={}），文件上传功能将无法使用。"
@@ -67,5 +79,19 @@ public class MinioConfig {
                         endpoint, e.getMessage());
             }
         };
+    }
+
+    private String publicReadPolicy(String bucketName) {
+        return """
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": ["arn:aws:s3:::%s/public/*"]
+                  }]
+                }
+                """.formatted(bucketName);
     }
 }
