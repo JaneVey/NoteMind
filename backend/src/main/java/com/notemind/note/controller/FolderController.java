@@ -2,6 +2,7 @@ package com.notemind.note.controller;
 
 import com.notemind.common.result.Result;
 import com.notemind.framework.security.SecurityUtils;
+import com.notemind.note.dto.MoveFolderRequest;
 import com.notemind.note.dto.SaveFolderRequest;
 import com.notemind.note.service.FolderService;
 import com.notemind.note.vo.FolderVO;
@@ -42,9 +43,16 @@ public class FolderController {
         return Result.success(folderService.update(SecurityUtils.currentUserId(), id, request));
     }
 
+    @PostMapping("/{id}/move")
+    public Result<FolderVO> move(@PathVariable Long id,
+                                 @Valid @RequestBody MoveFolderRequest request) {
+        return Result.success(folderService.move(SecurityUtils.currentUserId(), id, request));
+    }
+
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
-        folderService.delete(SecurityUtils.currentUserId(), id);
+    public Result<Void> delete(@PathVariable Long id,
+                               @RequestParam(defaultValue = "false") boolean force) {
+        folderService.delete(SecurityUtils.currentUserId(), id, force);
         return Result.success();
     }
 }

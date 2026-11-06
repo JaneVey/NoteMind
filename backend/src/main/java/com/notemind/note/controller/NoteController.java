@@ -6,6 +6,7 @@ import com.notemind.note.dto.CreateNoteRequest;
 import com.notemind.note.dto.MoveNoteRequest;
 import com.notemind.note.dto.UpdateNoteRequest;
 import com.notemind.note.service.NoteService;
+import com.notemind.note.vo.NoteLinkVO;
 import com.notemind.note.vo.NoteListItemVO;
 import com.notemind.note.vo.NoteVO;
 import jakarta.validation.Valid;
@@ -63,5 +64,15 @@ public class NoteController {
     public Result<NoteVO> move(@PathVariable Long id,
                                @Valid @RequestBody MoveNoteRequest request) {
         return Result.success(noteService.move(SecurityUtils.currentUserId(), id, request));
+    }
+
+    @GetMapping("/{id}/links")
+    public Result<List<NoteLinkVO>> links(@PathVariable Long id) {
+        return Result.success(noteService.links(SecurityUtils.currentUserId(), id));
+    }
+
+    @GetMapping("/{id}/backlinks")
+    public Result<List<NoteLinkVO>> backlinks(@PathVariable Long id) {
+        return Result.success(noteService.backlinks(SecurityUtils.currentUserId(), id));
     }
 }

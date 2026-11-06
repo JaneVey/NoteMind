@@ -41,6 +41,7 @@ public enum ErrorCode {
     NOTEBOOK_NOT_FOUND(3002, 404, "笔记本不存在"),
     FOLDER_NOT_FOUND(3003, 404, "文件夹不存在"),
     NOTEBOOK_NOT_EMPTY(3004, 400, "笔记本下还有内容，无法删除"),
+    FOLDER_NOT_EMPTY(3005, 400, "文件夹下还有内容，无法删除"),
 
     // ---------- 4xxx 知识库 ----------
     KNOWLEDGE_BASE_NOT_FOUND(4001, 404, "知识库不存在"),

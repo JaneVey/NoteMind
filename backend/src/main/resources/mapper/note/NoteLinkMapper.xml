@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.notemind.note.mapper.NoteLinkMapper">
+
+    <select id="selectBacklinks" resultType="com.notemind.note.vo.NoteLinkVO">
+        SELECT n.id, n.title
+        FROM note_link l
+        JOIN note n ON n.id = l.source_note_id
+        WHERE l.user_id = #{userId}
+          AND l.target_note_id = #{noteId}
+          AND n.user_id = #{userId}
+          AND n.is_deleted = FALSE
+        ORDER BY n.updated_at DESC
+    </select>
+
+    <select id="selectOutgoing" resultType="com.notemind.note.vo.NoteLinkVO">
+        SELECT n.id, n.title
+        FROM note_link l
+        JOIN note n ON n.id = l.target_note_id
+        WHERE l.user_id = #{userId}
+          AND l.source_note_id = #{noteId}
+          AND n.user_id = #{userId}
+          AND n.is_deleted = FALSE
+        ORDER BY n.updated_at DESC
+    </select>
+
+</mapper>
