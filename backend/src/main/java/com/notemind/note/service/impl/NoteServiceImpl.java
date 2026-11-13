@@ -1,6 +1,7 @@
 package com.notemind.note.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.notemind.common.exception.BusinessException;
 import com.notemind.common.exception.ErrorCode;
 import com.notemind.note.dto.CreateNoteRequest;
@@ -136,11 +137,20 @@ public class NoteServiceImpl implements NoteService {
         }
         note.setNotebookId(request.getNotebookId());
         note.setFolderId(request.getFolderId());
-        note.setUpdatedAt(OffsetDateTime.now());
-        noteMapper.updateById(note);
+        // updateById 忽略 null，移动到根目录（folderId=null）时必须显式 set
+        noteMapper.update(null, new LambdaUpdateWrapper<Note>()
+                .eq(Note::getId, id)
+                .eq(Note::getUserId, userId)
+                .set(Note::getNotebookId, request.getNotebookId())
+                .set(Note::getFolderId, request.getFolderId())
+                .set(Note::getUpdatedAt, OffsetDateTime.now()));
+        Note updated = noteMapper.selectById(id);
+        if (updated == null) {
+            throw new BusinessException(ErrorCode.NOTE_NOT_FOUND);
+        }
         // 链接只在本笔记本内解析，换笔记本后需要按新范围重建
-        rebuildLinks(note);
-        return toVO(note);
+        rebuildLinks(updated);
+        return toVO(updated);
     }
 
     @Override

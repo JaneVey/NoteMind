@@ -26,6 +26,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -134,6 +135,22 @@ class NoteServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(3003);
+    }
+
+    @Test
+    @DisplayName("移动到根目录时显式写入 null")
+    void moveNoteToRoot() {
+        Note note = existingNote();
+        when(noteMapper.selectOne(any())).thenReturn(note);
+        when(notebookMapper.selectCount(any())).thenReturn(1L);
+        when(noteMapper.selectById(any())).thenReturn(note);
+        MoveNoteRequest request = new MoveNoteRequest();
+        request.setNotebookId(1L);
+        request.setFolderId(null);
+
+        service.move(USER_ID, note.getId(), request);
+
+        verify(noteMapper).update(isNull(), any());
     }
 
     @Test
