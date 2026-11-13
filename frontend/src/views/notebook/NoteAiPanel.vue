@@ -5,7 +5,7 @@
     :style="{ width: `${width}px` }"
   >
     <div class="side-panel-resizer right-resizer" title="拖拽调整宽度" @mousedown.prevent="emit('resize-start', $event)" />
-    <header class="relative flex h-14 shrink-0 items-center gap-1 border-b border-zinc-200 px-3">
+    <header class="relative flex h-11 shrink-0 items-center gap-1 border-b border-zinc-200 px-3">
       <button v-for="tab in rightTabs" :key="tab.key" class="side-tab" :class="rightTab === tab.key ? 'side-tab-active' : ''" :title="tab.label" @click="rightTab = tab.key">
         <component :is="tab.icon" class="h-[18px] w-[18px]" />
       </button>

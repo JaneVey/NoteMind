@@ -85,7 +85,6 @@
           </div>
         </template>
       </ToolbarMenu>
-      <button v-if="!rightPanelVisible" class="icon-button ml-1" title="展开上下文面板" @click="emit('update:rightPanelVisible', true)"><PanelRightOpen class="h-[18px] w-[18px]" /></button>
     </div>
   </div>
 </template>
@@ -94,7 +93,7 @@
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, CirclePlus, Code2, Download, Eraser, Eye,
   FileSearch, Highlighter, ImagePlus, IndentDecrease, IndentIncrease, Library, Link, List, ListOrdered, ListTodo,
-  Mic, Minus, MoreHorizontal, NotebookPen, Paintbrush, PanelRightOpen, Paperclip, PenLine, Quote, Redo2,
+  Mic, Minus, MoreHorizontal, NotebookPen, Paintbrush, Paperclip, PenLine, Quote, Redo2,
   Sigma, Strikethrough, Table2, Trash2, Undo2,
 } from 'lucide-vue-next'
 import type { ViewMode } from './types'
@@ -109,7 +108,6 @@ import ToolbarMenu from './ToolbarMenu.vue'
  */
 defineProps<{
   viewMode: ViewMode
-  rightPanelVisible: boolean
 }>()
 
 const emit = defineEmits<{
@@ -124,7 +122,6 @@ const emit = defineEmits<{
   'insert-horizontal-rule': []
   'toggle-find': []
   'toggle-mode': []
-  'update:rightPanelVisible': [visible: boolean]
 }>()
 
 const highlightColors = ['#fff0ae', '#baf0d0', '#bde5ff', '#ffd3d3', '#e6d5ff', '#ffe0ad', '#d9d9d9']
@@ -156,7 +153,7 @@ const alignOptions = [
 .icon-button, .mode-button { height: 30px; width: 30px; }
 .icon-button:hover, .mode-button:hover, .format-button:hover { background: #f0f0ee; color: #27272a; }
 .mode-button-active { background: var(--mint); color: #247456; }
-.editor-toolbar { display: flex; height: 50px; shrink: 0; align-items: center; gap: 2px; border-bottom: 1px solid #e8e8e8; background: #fff; padding: 0 18px; }
+.editor-toolbar { display: flex; height: 54px; flex-shrink: 0; align-items: center; gap: 2px; border-bottom: 1px solid #e8e8e8; background: #fff; padding: 0 18px; }
 .format-button { height: 28px; width: 28px; font-size: 14px; }
 .format-select { display: inline-flex; height: 28px; align-items: center; gap: 4px; border-radius: 5px; padding: 0 8px; font-size: 12px; color: #52525b; }
 .format-select:hover, .format-select-active, .format-button-active { background: #f0f0ee; color: #27272a; }

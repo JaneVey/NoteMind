@@ -219,13 +219,13 @@ export const useNoteStore = defineStore('note', () => {
     }
   }
 
-  async function createNote(folderId: Id | null = null): Promise<Note | null> {
+  async function createNote(folderId: Id | null = null, title = '无标题笔记'): Promise<Note | null> {
     if (currentNotebookId.value === null) return null
     try {
       const note = await createNoteApi({
         notebookId: currentNotebookId.value,
         folderId,
-        title: '无标题笔记',
+        title,
         contentMd: '',
       })
       await loadNotebookData()

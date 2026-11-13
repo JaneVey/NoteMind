@@ -6,8 +6,13 @@
       :class="[
         isDropSubtree(row) ? 'drop-subtree' : '',
         selectedFolderId === row.folder.folder.id ? 'folder-row-selected' : '',
+        draggingFolderId === row.folder.folder.id ? 'dragging' : '',
       ]"
       :style="{ paddingLeft: `${row.depth * 14}px` }"
+      :data-folder-id="row.folder.folder.id"
+      draggable="true"
+      @dragstart="onFolderDragStart($event, row.folder.folder.id)"
+      @dragend="onNoteDragEnd"
     >
       <button
         v-if="hasChildren(row.folder)"
@@ -32,7 +37,6 @@
       >
         <Folder class="h-[16px] w-[16px] shrink-0 text-[#58a889]" />
         <span class="truncate">{{ row.folder.folder.name }}</span>
-        <span class="ml-auto text-xs font-normal text-zinc-400">{{ row.folder.notes.length }}</span>
       </button>
 
       <button class="tree-row-more" title="更多操作" @click.stop="openMenu($event, 'folder', row.folder.folder.id)">
@@ -53,6 +57,9 @@
       @click="emit('select-note', row.note.id)"
       @dragstart="onNoteDragStart($event, row.note)"
       @dragend="onNoteDragEnd"
+      @dragover.prevent="onRowDragOver(row.note.folderId)"
+      @dragleave="onRowDragLeave(row.note.folderId)"
+      @drop.prevent="onRowDrop($event, row.note.folderId)"
     >
       <FileText class="h-[16px] w-[16px] shrink-0 text-zinc-400" />
       <span class="min-w-0 flex-1 truncate">{{ row.note.title }}</span>
@@ -86,6 +93,9 @@
       @click="emit('select-note', note.id)"
       @dragstart="onNoteDragStart($event, note)"
       @dragend="onNoteDragEnd"
+      @dragover.prevent="onRowDragOver(null)"
+      @dragleave="onRowDragLeave(null)"
+      @drop.prevent="onRowDrop($event, null)"
     >
       <FileText class="h-[16px] w-[16px] shrink-0 text-zinc-400" />
       <span class="min-w-0 flex-1 truncate">{{ note.title }}</span>
@@ -110,8 +120,7 @@
       <button
         v-if="menu.type === 'note'"
         class="menu-item"
-        disabled
-        title="合并功能待实现"
+        @click="trigger('merge')"
       >
         <Merge class="h-4 w-4" />合并
       </button>
@@ -146,7 +155,7 @@ const props = defineProps<{
   nodes: FolderNode[]
   uncategorizedNotes: NotebookNote[]
   activeNoteId: Id
-  selectedFolderId: Id | null
+  selectedFolderId: Id | null | undefined
   collapsedFolderIds: Id[]
 }>()
 
@@ -155,6 +164,7 @@ const emit = defineEmits<{
   'select-folder': [folderId: Id | null]
   'toggle-folder': [folderId: Id]
   'drop-note': [payload: { noteId: Id; folderId: Id | null }]
+  'drop-folder': [payload: { folderId: Id; parentId: Id | null }]
   'note-action': [action: ItemAction, noteId: Id]
   'folder-action': [action: ItemAction, folderId: Id]
 }>()
@@ -178,6 +188,7 @@ const rows = computed<TreeRow[]>(() => {
 
 const menu = ref<{ type: 'note' | 'folder'; id: Id; x: number; y: number } | null>(null)
 const draggingNoteId = ref<Id | null>(null)
+const draggingFolderId = ref<Id | null>(null)
 const dragOverFolderId = ref<Id | null>(null)
 const dragOverRoot = ref(false)
 
@@ -216,7 +227,15 @@ function trigger(action: ItemAction): void {
 
 function onNoteDragStart(event: DragEvent, note: NotebookNote): void {
   draggingNoteId.value = note.id
-  event.dataTransfer?.setData('text/plain', String(note.id))
+  event.dataTransfer?.setData('text/plain', `note:${note.id}`)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function onFolderDragStart(event: DragEvent, folderId: Id): void {
+  draggingFolderId.value = folderId
+  event.dataTransfer?.setData('text/plain', `folder:${folderId}`)
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
   }
@@ -224,6 +243,7 @@ function onNoteDragStart(event: DragEvent, note: NotebookNote): void {
 
 function onNoteDragEnd(): void {
   draggingNoteId.value = null
+  draggingFolderId.value = null
   dragOverFolderId.value = null
   dragOverRoot.value = false
 }
@@ -239,25 +259,70 @@ function onFolderDragLeave(folderId: Id): void {
   }
 }
 
-function dropTarget(event: DragEvent): Id | null {
-  const raw = draggingNoteId.value ?? event.dataTransfer?.getData('text/plain')
-  if (raw === null || raw === '') return null
-  const noteId = typeof raw === 'number' ? raw : Number(raw)
-  return Number.isNaN(noteId) ? null : noteId
+interface DragPayload {
+  type: 'note' | 'folder'
+  id: Id
+}
+
+function readPayload(event: DragEvent): DragPayload | null {
+  const raw = event.dataTransfer?.getData('text/plain') ?? ''
+  const [type, idText] = raw.split(':')
+  if ((type !== 'note' && type !== 'folder') || !idText) return null
+  const id = Number(idText)
+  return Number.isNaN(id) ? null : { type, id }
 }
 
 function onDropToFolder(event: DragEvent, folderId: Id): void {
-  const noteId = dropTarget(event)
-  if (noteId !== null) {
-    emit('drop-note', { noteId, folderId })
+  const payload = readPayload(event)
+  if (payload) {
+    if (payload.type === 'note') {
+      emit('drop-note', { noteId: payload.id, folderId })
+    } else if (payload.id !== folderId) {
+      emit('drop-folder', { folderId: payload.id, parentId: folderId })
+    }
   }
   onNoteDragEnd()
 }
 
 function onDropToRoot(event: DragEvent): void {
-  const noteId = dropTarget(event)
-  if (noteId !== null) {
-    emit('drop-note', { noteId, folderId: null })
+  const payload = readPayload(event)
+  if (payload) {
+    if (payload.type === 'note') {
+      emit('drop-note', { noteId: payload.id, folderId: null })
+    } else {
+      emit('drop-folder', { folderId: payload.id, parentId: null })
+    }
+  }
+  onNoteDragEnd()
+}
+
+/** 笔记行也是投放目标：落在某文件夹的笔记上，等于放进该笔记所在文件夹。 */
+function onRowDragOver(folderId: Id | null): void {
+  if (folderId === null) {
+    dragOverFolderId.value = null
+    dragOverRoot.value = true
+  } else {
+    dragOverRoot.value = false
+    dragOverFolderId.value = folderId
+  }
+}
+
+function onRowDragLeave(folderId: Id | null): void {
+  if (folderId === null) {
+    dragOverRoot.value = false
+  } else if (dragOverFolderId.value === folderId) {
+    dragOverFolderId.value = null
+  }
+}
+
+function onRowDrop(event: DragEvent, folderId: Id | null): void {
+  const payload = readPayload(event)
+  if (payload) {
+    if (payload.type === 'note') {
+      emit('drop-note', { noteId: payload.id, folderId })
+    } else if (folderId !== null && payload.id !== folderId) {
+      emit('drop-folder', { folderId: payload.id, parentId: folderId })
+    }
   }
   onNoteDragEnd()
 }
@@ -275,10 +340,11 @@ onBeforeUnmount(() => document.removeEventListener('click', closeMenu))
 .tree-chevron:hover { background: #e9e9e7; color: #52525b; }
 .tree-chevron-placeholder { display: inline-block; width: 18px; flex-shrink: 0; }
 .folder-heading { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; border-radius: 6px; padding: 6px 4px; text-align: left; font-weight: 500; color: #52525b; }
-.folder-heading-active { background: #eaf5ef; color: #1f7253; }
+.folder-heading-active { background: transparent; color: inherit; }
+.folder-row-selected { background: #f2f2f0; }
 .tree-row-more { display: inline-flex; height: 22px; width: 22px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 4px; color: #a1a1aa; opacity: 0; transition: opacity .12s ease; }
 .tree-row-more:hover { background: #e9e9e7; color: #3f3f46; }
-.note-row-active { background: #eaf5ef; color: #1f7253; }
+.note-row-active { background: #f2f2f0; color: inherit; }
 .note-row-active .tree-row-more { opacity: 1; }
 .tree-note-row { padding-left: 26px; }
 .dragging { opacity: .45; }

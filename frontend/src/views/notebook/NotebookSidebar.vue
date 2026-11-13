@@ -1,10 +1,10 @@
 <template>
   <aside
     v-show="visible"
-    class="relative flex w-[318px] shrink-0 flex-col border-r border-zinc-200 bg-[#fbfbfa]"
+    class="notebook-sidebar relative flex w-[318px] shrink-0 flex-col border-r border-zinc-200 bg-[#fbfbfa]"
     :style="{ width: `${width}px` }"
   >
-    <header class="relative flex h-14 shrink-0 items-center justify-center border-b border-zinc-200 px-3">
+    <header class="relative flex h-11 shrink-0 items-center justify-center border-b border-zinc-200 px-3">
       <button class="icon-button absolute left-3" title="收起笔记侧栏" @click="emit('update:visible', false)">
         <PanelLeftClose class="h-[18px] w-[18px]" />
       </button>
@@ -74,6 +74,7 @@
           @select-folder="emit('select-folder', $event)"
           @toggle-folder="toggleFolder"
           @drop-note="emit('drop-note', $event)"
+          @drop-folder="emit('drop-folder', $event)"
           @note-action="forwardNoteAction"
           @folder-action="forwardFolderAction"
         />
@@ -230,7 +231,7 @@ const props = defineProps<{
   currentNotebookId: Id | null
   activeNoteId: Id
   activeNoteFolderId: Id | null
-  selectedFolderId: Id | null
+  selectedFolderId: Id | null | undefined
 }>()
 
 const emit = defineEmits<{
@@ -242,6 +243,7 @@ const emit = defineEmits<{
   'create-folder': []
   'select-folder': [folderId: Id | null]
   'drop-note': [payload: { noteId: Id; folderId: Id | null }]
+  'drop-folder': [payload: { folderId: Id; parentId: Id | null }]
   'note-action': [action: ItemAction, noteId: Id]
   'folder-action': [action: ItemAction, folderId: Id]
   'select-notebook': [notebookId: Id]

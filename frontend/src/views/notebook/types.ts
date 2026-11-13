@@ -63,6 +63,12 @@ export interface MoveFolderOption {
   path: string
 }
 
+/** 编辑器上方的标签页 */
+export interface NoteTab {
+  id: Id
+  title: string
+}
+
 /** 目录树里的一组：文件夹 + 其下笔记（已排序） */
 export interface FolderGroup {
   folder: NotebookFolder

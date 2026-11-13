@@ -1,8 +1,22 @@
 <template>
   <div class="flex h-screen overflow-hidden bg-[#f7f7f6] text-zinc-800">
     <aside class="flex w-[60px] shrink-0 flex-col items-center bg-[#eeeeed] text-zinc-500">
-      <div class="relative pt-3" ref="userMenuRef">
+      <div
+        class="relative pt-3"
+        ref="userMenuRef"
+        @mouseenter="avatarHover = true"
+        @mouseleave="avatarHover = false"
+      >
         <button
+          v-if="showSidebarExpand && avatarHover"
+          class="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 text-white shadow-sm transition-colors hover:bg-zinc-700"
+          title="展开笔记侧栏"
+          @click="notebookSidebar.expand()"
+        >
+          <PanelLeftOpen class="h-[18px] w-[18px]" />
+        </button>
+        <button
+          v-else
           class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md bg-zinc-800 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-zinc-700"
           title="个人中心"
           @click="showUserMenu = !showUserMenu"
@@ -208,6 +222,7 @@ import {
   MessageSquare,
   Network,
   Palette,
+  PanelLeftOpen,
   PenLine,
   Plug,
   Puzzle,
@@ -217,6 +232,7 @@ import {
 import { updateUserProfile } from '@/api/user'
 import { useAuthStore } from '@/stores/authStore'
 import { useAuthDialog } from '@/composables/useAuthDialog'
+import { useNotebookSidebar } from '@/composables/useNotebookSidebar'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import DialogContent from '@/components/ui/DialogContent.vue'
@@ -227,6 +243,11 @@ import Input from '@/components/ui/Input.vue'
 
 const router = useRouter()
 const route = useRoute()
+const notebookSidebar = useNotebookSidebar()
+const avatarHover = ref(false)
+const showSidebarExpand = computed(
+  () => route.path.startsWith('/notebook') && notebookSidebar.collapsed.value,
+)
 const authStore = useAuthStore()
 const authDialog = useAuthDialog()
 

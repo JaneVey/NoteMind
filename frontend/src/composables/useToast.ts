@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-export type ToastType = 'success' | 'error'
+export type ToastType = 'success' | 'error' | 'info'
 
 export interface ToastItem {
   id: number
@@ -25,5 +25,6 @@ export function useToast() {
     toasts,
     success: (message: string) => push('success', message),
     error: (message: string) => push('error', message),
+    info: (message: string) => push('info', message),
   }
 }

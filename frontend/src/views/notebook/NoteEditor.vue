@@ -2,7 +2,6 @@
   <main class="flex min-w-0 flex-1 flex-col bg-white">
     <EditorToolbar
       :view-mode="viewMode"
-      :right-panel-visible="rightPanelVisible"
       @run-command="runRichCommand"
       @format-block="formatRichBlock"
       @select-block="formatRichBlock"
@@ -14,7 +13,6 @@
       @insert-horizontal-rule="insertHorizontalRule"
       @toggle-find="showFindPanel = !showFindPanel"
       @toggle-mode="toggleViewMode"
-      @update:right-panel-visible="emit('update:rightPanelVisible', $event)"
     />
 
     <FindPanel v-if="showFindPanel" @close="showFindPanel = false" />
@@ -77,7 +75,6 @@ const props = defineProps<{
   title: string
   content: string
   viewMode: ViewMode
-  rightPanelVisible: boolean
   /** 插入「笔记链接」时的目标标题；没有其他笔记时为 null */
   wikiLinkTargetTitle: string | null
 }>()
@@ -86,7 +83,6 @@ const emit = defineEmits<{
   'update:title': [title: string]
   'update:content': [content: string]
   'update:viewMode': [mode: ViewMode]
-  'update:rightPanelVisible': [visible: boolean]
   change: []
 }>()
 

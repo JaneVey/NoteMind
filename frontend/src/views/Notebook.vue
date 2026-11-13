@@ -20,22 +20,42 @@
       @create-folder="openCreateFolder"
       @select-folder="selectFolder"
       @drop-note="handleDropNote"
+      @drop-folder="handleDropFolder"
       @note-action="handleNoteAction"
       @folder-action="handleFolderAction"
       @select-notebook="switchNotebook"
       @manage-notebooks="openNotebookManager"
     />
 
-    <NoteEditor
-      v-model:title="noteTitle"
-      v-model:content="noteContent"
-      v-model:view-mode="viewMode"
-      :note-id="activeNoteId ?? ''"
-      :right-panel-visible="rightPanelVisible"
-      :wiki-link-target-title="wikiLinkTargetTitle"
-      @change="touchActiveNote"
-      @update:right-panel-visible="rightPanelVisible = $event"
-    />
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <NotebookTabs
+        :tabs="openTabs"
+        :active-id="activeTabId"
+        :right-panel-visible="rightPanelVisible"
+        @select="switchTab"
+        @close="closeTabById"
+        @reorder="reorderTabs"
+        @create="openNewTab"
+        @close-all="closeAllTabs"
+        @expand-right="rightPanelVisible = true"
+      />
+
+      <NewTabPage
+        v-if="activeNewTab"
+        @create="createNote"
+        @open-picker="showQuickSwitcher = true"
+      />
+
+      <NoteEditor
+        v-else
+        v-model:title="noteTitle"
+        v-model:content="noteContent"
+        v-model:view-mode="viewMode"
+        :note-id="activeNoteId ?? ''"
+        :wiki-link-target-title="wikiLinkTargetTitle"
+        @change="touchActiveNote"
+      />
+    </div>
 
     <NoteAiPanel
       v-model:visible="rightPanelVisible"
@@ -65,6 +85,13 @@
       </span>
     </footer>
   </div>
+
+  <QuickSwitcher
+    v-model:visible="showQuickSwitcher"
+    :notes="navNotes"
+    @open="handleQuickOpen"
+    @create="handleQuickCreate"
+  />
 
   <MoveNoteDialog
     v-model:visible="showMoveFolderDialog"
@@ -174,6 +201,7 @@ import { useDropdown } from '@/composables/useDropdown'
 import { useConfirm } from '@/composables/useConfirm'
 import { useInputDialog } from '@/composables/useInputDialog'
 import { useToast } from '@/composables/useToast'
+import { useNotebookSidebar } from '@/composables/useNotebookSidebar'
 import { useAuthStore } from '@/stores/authStore'
 import { useNoteStore } from '@/stores/noteStore'
 import type { Id } from '@/types/common'
@@ -185,7 +213,10 @@ import MoveNoteDialog from './notebook/MoveNoteDialog.vue'
 import NotebookCreateDialog from './notebook/NotebookCreateDialog.vue'
 import NotebookGlyph from './notebook/NotebookGlyph.vue'
 import NotebookSidebar from './notebook/NotebookSidebar.vue'
-import type { ItemAction, MoveFolderOption } from './notebook/types'
+import NotebookTabs from './notebook/NotebookTabs.vue'
+import NewTabPage from './notebook/NewTabPage.vue'
+import QuickSwitcher from './notebook/QuickSwitcher.vue'
+import type { ItemAction, MoveFolderOption, NoteTab } from './notebook/types'
 import type {
   NotebookFolder, NotebookNote, RecentGroupLabel, ViewMode,
 } from './notebook/types'
@@ -209,7 +240,11 @@ const noteStore = useNoteStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const sidePanelVisible = ref(true)
+const { collapsed: sidebarCollapsed } = useNotebookSidebar()
+const sidePanelVisible = computed({
+  get: () => !sidebarCollapsed.value,
+  set: (visible: boolean) => { sidebarCollapsed.value = !visible },
+})
 const sidePanelWidth = ref(318)
 const rightPanelVisible = ref(true)
 const rightPanelWidth = ref(320)
@@ -217,7 +252,8 @@ const isSidePanelResizing = ref(false)
 const isRightPanelResizing = ref(false)
 const viewMode = ref<ViewMode>('writing')
 const activeNoteId = ref<Id | null>(null)
-const selectedFolderId = ref<Id | null>(null)
+/** undefined 表示没有选中任何文件夹；null 表示选中了「未分类」根层 */
+const selectedFolderId = ref<Id | null | undefined>(undefined)
 const noteTitle = ref('')
 const noteContent = ref('')
 const isSynced = ref(true)
@@ -232,6 +268,21 @@ const statusModeMenuRef = ref<HTMLElement | null>(null)
 const { isOpen: showStatusModeMenu, toggle: toggleStatusModeMenu, close: closeStatusModeMenu } = useDropdown(statusModeMenuRef)
 
 const navNotes = computed<NotebookNote[]>(() => noteStore.notes.map(toNavNote))
+const NEW_TAB_ID = '__new__'
+const openTabIds = ref<Id[]>([])
+const newTabOpen = ref(false)
+const activeNewTab = ref(false)
+const activeTabId = computed<Id | null>(() => (activeNewTab.value ? NEW_TAB_ID : activeNoteId.value))
+const openTabs = computed<NoteTab[]>(() => {
+  const tabs: NoteTab[] = openTabIds.value.map((id) => ({
+    id,
+    title: navNotes.value.find((note) => note.id === id)?.title ?? '无标题笔记',
+  }))
+  if (newTabOpen.value) {
+    tabs.push({ id: NEW_TAB_ID, title: '新标签页' })
+  }
+  return tabs
+})
 const navFolders = computed<NotebookFolder[]>(
   () => noteStore.folders.map((folder) => ({
     id: folder.id,
@@ -277,10 +328,14 @@ function recentGroupOf(iso: string): RecentGroupLabel {
 }
 
 async function selectNote(noteId: Id): Promise<void> {
-  if (noteId === activeNoteId.value) return
+  if (noteId === activeNoteId.value && !activeNewTab.value) return
+  selectedFolderId.value = undefined
   await flushSave()
+  activeNewTab.value = false
+  newTabOpen.value = false
   const note = await noteStore.openNote(noteId)
   if (!note) return
+  openTab(note.id)
   activeNoteId.value = note.id
   noteTitle.value = note.title
   noteContent.value = note.contentMd
@@ -294,17 +349,106 @@ async function openSearchResult(noteId: Id): Promise<void> {
 }
 
 async function createNote(): Promise<void> {
+  await createNoteWithTitle('无标题笔记')
+}
+
+async function createNoteWithTitle(title: string): Promise<void> {
   await flushSave()
-  const note = await noteStore.createNote(selectedFolderId.value)
+  activeNewTab.value = false
+  newTabOpen.value = false
+  const note = await noteStore.createNote(selectedFolderId.value ?? null, title)
   if (!note) {
     toast.error(noteStore.error ?? '创建笔记失败')
     return
   }
+  openTab(note.id)
   activeNoteId.value = note.id
   noteTitle.value = note.title
   noteContent.value = note.contentMd
   isSynced.value = true
   saveError.value = null
+}
+
+function handleQuickOpen(noteId: Id): void {
+  showQuickSwitcher.value = false
+  void selectNote(noteId)
+}
+
+function handleQuickCreate(title: string): void {
+  showQuickSwitcher.value = false
+  void createNoteWithTitle(title)
+}
+
+function openTab(noteId: Id): void {
+  if (!openTabIds.value.includes(noteId)) {
+    openTabIds.value.push(noteId)
+  }
+}
+
+async function closeTab(noteId: Id): Promise<void> {
+  const index = openTabIds.value.indexOf(noteId)
+  if (index < 0) return
+
+  const wasActive = !activeNewTab.value && activeNoteId.value === noteId
+  if (wasActive) await flushSave()
+  openTabIds.value = openTabIds.value.filter((id) => id !== noteId)
+  if (!wasActive) return
+
+  const next = openTabIds.value[Math.min(index, openTabIds.value.length - 1)] ?? null
+  if (next !== null) {
+    await selectNote(next)
+  } else {
+    resetActiveNote()
+  }
+}
+
+async function openNewTab(): Promise<void> {
+  if (activeNewTab.value) return
+  await flushSave()
+  newTabOpen.value = true
+  activeNewTab.value = true
+}
+
+async function closeNewTab(): Promise<void> {
+  if (!newTabOpen.value) return
+  newTabOpen.value = false
+  if (!activeNewTab.value) return
+
+  activeNewTab.value = false
+  const last = openTabIds.value[openTabIds.value.length - 1] ?? null
+  if (last !== null) {
+    await selectNote(last)
+  } else {
+    resetActiveNote()
+  }
+}
+
+function switchTab(tabId: Id): void {
+  if (tabId === NEW_TAB_ID) {
+    void openNewTab()
+    return
+  }
+  void selectNote(tabId)
+}
+
+function closeTabById(tabId: Id): void {
+  if (tabId === NEW_TAB_ID) {
+    void closeNewTab()
+    return
+  }
+  void closeTab(tabId)
+}
+
+function reorderTabs(noteIds: Id[]): void {
+  openTabIds.value = noteIds
+}
+
+async function closeAllTabs(): Promise<void> {
+  await flushSave()
+  openTabIds.value = []
+  newTabOpen.value = false
+  activeNewTab.value = false
+  resetActiveNote()
 }
 
 function selectStatusViewMode(mode: ViewMode): void {
@@ -357,6 +501,7 @@ const showNotebookManager = ref(false)
 const showCreateNotebookDialog = ref(false)
 const creatingNotebook = ref(false)
 const showMoveDialog = ref(false)
+const showQuickSwitcher = ref(false)
 const movingNoteId = ref<Id | null>(null)
 const showMoveFolderDialog = ref(false)
 const movingFolderId = ref<Id | null>(null)
@@ -447,7 +592,10 @@ async function selectFirstNote(): Promise<void> {
 async function switchNotebook(notebookId: Id): Promise<void> {
   await flushSave()
   await noteStore.selectNotebook(notebookId)
-  selectedFolderId.value = null
+  openTabIds.value = []
+  newTabOpen.value = false
+  activeNewTab.value = false
+  selectedFolderId.value = undefined
   resetActiveNote()
   await selectFirstNote()
 }
@@ -537,7 +685,10 @@ async function removeNotebook(notebook: Notebook): Promise<void> {
     selectedManagerNotebookId.value = noteStore.currentNotebookId
   }
   if (wasCurrent) {
-    selectedFolderId.value = null
+    openTabIds.value = []
+    newTabOpen.value = false
+    activeNewTab.value = false
+    selectedFolderId.value = undefined
     resetActiveNote()
     await selectFirstNote()
   }
@@ -546,7 +697,7 @@ async function removeNotebook(notebook: Notebook): Promise<void> {
 async function openCreateFolder(): Promise<void> {
   const name = await inputDialog.open({ title: '新建文件夹', placeholder: '文件夹名称' })
   if (name === null) return
-  const folder = await noteStore.createFolder(name, selectedFolderId.value)
+  const folder = await noteStore.createFolder(name, selectedFolderId.value ?? null)
   if (!folder) {
     toast.error(noteStore.error ?? '创建失败')
     return
@@ -606,9 +757,9 @@ async function removeFolder(folderId: Id): Promise<void> {
   }
   toast.success('文件夹已删除')
 
-  if (selectedFolderId.value !== null
+  if (selectedFolderId.value !== undefined
       && !noteStore.folders.some((item) => item.id === selectedFolderId.value)) {
-    selectedFolderId.value = null
+    selectedFolderId.value = undefined
   }
   if (activeNoteId.value !== null
       && !noteStore.notes.some((item) => item.id === activeNoteId.value)) {
@@ -619,6 +770,15 @@ async function removeFolder(folderId: Id): Promise<void> {
 
 function selectFolder(folderId: Id | null): void {
   selectedFolderId.value = folderId
+}
+
+async function handleDropFolder(payload: { folderId: Id; parentId: Id | null }): Promise<void> {
+  const ok = await noteStore.moveFolder(payload.folderId, payload.parentId)
+  if (!ok) {
+    toast.error(noteStore.error ?? '移动失败')
+    return
+  }
+  toast.success(payload.parentId === null ? '已移到根目录' : '已移动到文件夹')
 }
 
 async function handleDropNote(payload: { noteId: Id; folderId: Id | null }): Promise<void> {
@@ -658,6 +818,10 @@ async function confirmMoveNote(folderId: Id | null): Promise<void> {
 async function handleNoteAction(action: ItemAction, noteId: Id): Promise<void> {
   if (action === 'move') {
     openMoveDialog(noteId)
+    return
+  }
+  if (action === 'merge') {
+    toast.info('合并功能尚未实现')
     return
   }
   if (action === 'rename') {
@@ -778,7 +942,28 @@ function startRightPanelResize(event: MouseEvent): void {
   window.addEventListener('mouseup', stop)
 }
 
+function clearFolderSelection(event: MouseEvent): void {
+  const target = event.target as HTMLElement | null
+  if (!target) return
+  // 顶部创建按钮作用于当前选中文件夹，点它不取消
+  if (target.closest('.file-action-bar')) return
+  const folderRow = target.closest('[data-folder-id]') as HTMLElement | null
+  if (folderRow && selectedFolderId.value !== undefined
+      && String(folderRow.dataset.folderId) === String(selectedFolderId.value)) {
+    return
+  }
+  selectedFolderId.value = undefined
+}
+
+watch(navNotes, (notes) => {
+  const existing = new Set(notes.map((note) => note.id))
+  if (openTabIds.value.some((id) => !existing.has(id))) {
+    openTabIds.value = openTabIds.value.filter((id) => existing.has(id))
+  }
+})
+
 onMounted(async () => {
+  document.addEventListener('click', clearFolderSelection)
   if (!authStore.isLoggedIn) return
   await noteStore.bootstrap()
   await selectFirstNote()
@@ -799,6 +984,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', clearFolderSelection)
   stopSideResize?.()
   stopRightResize?.()
   if (syncTimer) clearTimeout(syncTimer)
